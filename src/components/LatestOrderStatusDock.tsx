@@ -1,0 +1,171 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { useCart } from "@/context/CartContext";
+import { inr } from "@/lib/format";
+import { useOrders, type Order } from "@/lib/storefront";
+import { CheckIcon, ChevronDown, OrdersIcon } from "./icons";
+
+function presentation(status: Order["status"]) {
+  if (status === "Confirmed") {
+    return {
+      title: "Payment confirmed",
+      subtitle: "Your order is being prepared",
+      accent: "bg-emerald-400",
+      icon: "bg-emerald-400/15 text-emerald-300 ring-emerald-300/25",
+      progress: 100,
+    };
+  }
+  if (status === "Cancelled") {
+    return {
+      title: "Order cancelled",
+      subtitle: "View the order for more information",
+      accent: "bg-red-400",
+      icon: "bg-red-400/15 text-red-300 ring-red-300/25",
+      progress: 100,
+    };
+  }
+  return {
+    title: "Payment being verified",
+    subtitle: "We received your payment proof",
+    accent: "bg-amber-400",
+    icon: "bg-amber-400/15 text-amber-300 ring-amber-300/25",
+    progress: 66,
+  };
+}
+
+export function LatestOrderStatusDock() {
+  const pathname = usePathname();
+  const orders = useOrders();
+  const { itemCount, hydrated, cartOpen } = useCart();
+  const [expanded, setExpanded] = useState(false);
+
+  const order = orders[0];
+  const hidden =
+    pathname?.startsWith("/checkout") ||
+    pathname?.startsWith("/orders") ||
+    pathname?.startsWith("/order/");
+
+  if (!order || hidden || cartOpen) return null;
+
+  const view = presentation(order.status);
+  const hasCart = hydrated && itemCount > 0;
+  const totalItems = order.lines.reduce((sum, line) => sum + line.qty, 0);
+  const placed = new Date(order.placedAt).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return (
+    <aside
+      aria-label="Latest order status"
+      className={`pointer-events-none fixed inset-x-0 z-50 px-2.5 transition-[bottom] duration-300 sm:px-4 lg:inset-x-auto lg:right-6 lg:w-[25rem] lg:px-0 ${
+        hasCart
+          ? "bottom-[calc(7.75rem+env(safe-area-inset-bottom))] sm:bottom-[4.75rem] lg:bottom-6"
+          : "bottom-[calc(3.75rem+env(safe-area-inset-bottom))] sm:bottom-3 lg:bottom-6"
+      }`}
+    >
+      <div className="pointer-events-auto relative mx-auto w-full max-w-[27rem] pt-3 lg:max-w-none">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+          className="absolute left-1/2 top-0 z-10 flex h-7 -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-ink-100 bg-white px-3 text-[11px] font-extrabold text-accent-500 shadow-card transition-colors hover:bg-accent-50"
+        >
+          Order status
+          <ChevronDown
+            className={`h-3 w-3 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
+            strokeWidth={2.5}
+          />
+        </button>
+
+        <div className="overflow-hidden rounded-[1.35rem] bg-[#293240] text-white shadow-[0_12px_35px_rgba(20,24,32,0.28)] ring-1 ring-white/5">
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((current) => !current)}
+            className="flex min-h-[5.25rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.035]"
+          >
+            <span
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-4 ${view.icon}`}
+            >
+              {order.status === "Confirmed" ? (
+                <CheckIcon className="h-5 w-5" strokeWidth={3} />
+              ) : (
+                <OrdersIcon className="h-5 w-5" strokeWidth={2} />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="truncate text-[15px] font-extrabold leading-tight">
+                  {view.title}
+                </span>
+                <span className={`h-2 w-2 shrink-0 rounded-full ${view.accent}`} />
+              </span>
+              <span className="mt-1 block truncate text-[12px] font-medium text-white/65">
+                {view.subtitle}
+              </span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="block text-[11px] font-bold text-white/55">{order.id}</span>
+              <span className="mt-0.5 block text-sm font-extrabold tabular-nums">
+                {inr(order.total)}
+              </span>
+            </span>
+          </button>
+
+          <div
+            className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="border-t border-white/10 px-4 pb-4 pt-3">
+                <div className="flex items-center justify-between text-[10px] font-bold text-white/55">
+                  <span>Order placed</span>
+                  <span>{order.status === "Confirmed" ? "Confirmed" : order.status === "Cancelled" ? "Cancelled" : "Verification"}</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className={`h-full rounded-full transition-[width] duration-500 ${view.accent}`}
+                    style={{ width: `${view.progress}%` }}
+                  />
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 divide-x divide-white/10 rounded-xl bg-white/[0.055] py-2.5 text-center">
+                  <span>
+                    <span className="block text-[10px] font-medium text-white/45">Placed</span>
+                    <span className="mt-0.5 block text-[11px] font-bold text-white/85">{placed}</span>
+                  </span>
+                  <span>
+                    <span className="block text-[10px] font-medium text-white/45">Items</span>
+                    <span className="mt-0.5 block text-[11px] font-bold text-white/85">
+                      {totalItems}
+                    </span>
+                  </span>
+                  <span>
+                    <span className="block text-[10px] font-medium text-white/45">Total</span>
+                    <span className="mt-0.5 block text-[11px] font-bold text-white/85">
+                      {inr(order.total)}
+                    </span>
+                  </span>
+                </div>
+
+                <Link
+                  href={`/order/${order.id}`}
+                  className="mt-3 flex h-10 items-center justify-center rounded-xl bg-white text-xs font-extrabold text-[#293240] transition-colors hover:bg-white/90"
+                >
+                  View complete order
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
