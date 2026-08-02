@@ -1,43 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { inr } from "@/lib/format";
-import { useCurrentLocation } from "@/lib/useCurrentLocation";
 import { useOrders } from "@/lib/storefront";
-import { BoltIcon, CartIcon, ChevronDown, LocationIcon, OrdersIcon } from "./icons";
+import { BoltIcon, CartIcon, OrdersIcon } from "./icons";
+import { LocationPicker } from "./LocationPicker";
 import { SearchBox, type SearchBoxHandle } from "./SearchBox";
 
 export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }) {
   const { itemCount, subtotal, hydrated, openCart } = useCart();
   const orders = useOrders();
-  const { location, status, error, detect } = useCurrentLocation();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  // Close the address dropdown on outside click / Escape.
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!pickerRef.current?.contains(e.target as Node)) setPickerOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPickerOpen(false);
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [pickerOpen]);
-
-  const locating = status === "locating";
-  const headline = locating
-    ? "Detecting your location…"
-    : location
-      ? location.label
-      : "Set your location";
-  const detail = location?.line ?? "Tap to detect your current location";
 
   return (
     <>
@@ -55,82 +28,7 @@ export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }
               </span>
             </Link>
 
-            {/* Current location */}
-            <div className="relative min-w-0 flex-1 lg:flex-none lg:max-w-xs" ref={pickerRef}>
-              <button
-                type="button"
-                onClick={() => setPickerOpen((v) => !v)}
-                aria-expanded={pickerOpen}
-                className="flex w-full min-w-0 flex-col items-start rounded-lg px-1 py-1 text-left transition-colors hover:bg-ink-50 lg:px-2"
-              >
-                <span className="flex max-w-full items-center gap-1 text-[13px] font-extrabold leading-tight text-ink-900 lg:text-[15px]">
-                  <span className="truncate">{headline}</span>
-                  {locating && (
-                    <span
-                      aria-hidden="true"
-                      className="h-2.5 w-2.5 shrink-0 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600"
-                    />
-                  )}
-                </span>
-                <span className="flex w-full min-w-0 items-center gap-0.5 text-[11px] leading-tight text-ink-500 lg:text-xs">
-                  <LocationIcon className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{detail}</span>
-                  <ChevronDown className="h-3 w-3 shrink-0" />
-                </span>
-              </button>
-
-              {pickerOpen && (
-                <div className="absolute left-0 top-full z-50 mt-1.5 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-ink-100 bg-white shadow-pop">
-                  <p className="border-b border-ink-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-ink-400">
-                    Delivery location
-                  </p>
-
-                  {location && (
-                    <div className="flex items-start gap-2.5 border-b border-ink-100 bg-brand-50 px-3 py-2.5">
-                      <LocationIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-                      <span className="min-w-0">
-                        <span className="block text-[13px] font-semibold text-ink-900">
-                          {location.label}
-                        </span>
-                        <span className="block text-[11px] leading-snug text-ink-500">
-                          {location.line}
-                        </span>
-                        <span className="mt-0.5 block text-[10px] text-ink-400">
-                          {location.lat.toFixed(4)}, {location.lon.toFixed(4)}
-                        </span>
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="p-3">
-                    <button
-                      type="button"
-                      onClick={detect}
-                      disabled={locating}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-3 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-brand-800 disabled:opacity-60"
-                    >
-                      <LocationIcon className="h-3.5 w-3.5" />
-                      {locating
-                        ? "Detecting…"
-                        : location
-                          ? "Update my location"
-                          : "Detect my current location"}
-                    </button>
-
-                    {error && (
-                      <p role="alert" className="mt-2 text-[11px] leading-snug text-red-600">
-                        {error}
-                      </p>
-                    )}
-                    {!error && !location && (
-                      <p className="mt-2 text-[11px] leading-snug text-ink-500">
-                        We use your device location to show accurate delivery details.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <LocationPicker />
 
             {/* Desktop search */}
             <SearchBox ref={searchRef} className="hidden flex-1 lg:block" />

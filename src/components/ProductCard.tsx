@@ -64,7 +64,9 @@ export function ProductCard({ product, variant = "grid", priority = false }: Pro
 
       {/* Unit + rating */}
       <div className="mt-1 flex items-center gap-1.5">
-        <span className="text-[11px] text-ink-500">{product.unit}</span>
+        <span className="rounded bg-accent-50 px-1.5 py-px text-[11px] font-bold text-accent-500">
+          {product.unit}
+        </span>
         {product.rating > 0 && (
           <span className="flex items-center gap-0.5 rounded bg-save-50 px-1 py-px text-[10px] font-semibold text-save-500">
             <StarIcon className="h-2 w-2" />

@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { CartLine } from "@/context/CartContext";
+import { cartWeightKg, DEFAULT_SHIPPING_SETTINGS, type ShippingSettings } from "./shipping";
 
 /* ------------------------------------------------------------------ *
  * Payment settings consumed by the customer checkout.
@@ -28,6 +29,7 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
 };
 
 const SETTINGS_KEY = "szepto.payment-settings.v1";
+const SHIPPING_KEY = "szepto.shipping-settings.v1";
 const ORDERS_KEY = "szepto.orders.v1";
 const MAX_STORED_ORDERS = 25;
 
@@ -41,19 +43,24 @@ const CHANGE_EVENT = "szepto:storage-change";
  * would loop forever. Parsed values are cached and only invalidated when something writes.
  */
 let settingsCache: PaymentSettings | null = null;
+let shippingCache: ShippingSettings | null = null;
 let ordersCache: Order[] | null = null;
 
-function emitChange() {
+function clearCaches() {
   settingsCache = null;
+  shippingCache = null;
   ordersCache = null;
+}
+
+function emitChange() {
+  clearCaches();
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
 export function subscribeToStorefront(listener: () => void): () => void {
   // A write in another tab fires `storage`; our own writes fire CHANGE_EVENT.
   const onExternal = () => {
-    settingsCache = null;
-    ordersCache = null;
+    clearCaches();
     listener();
   };
   window.addEventListener(CHANGE_EVENT, listener);
@@ -72,6 +79,41 @@ export function usePaymentSettings(): PaymentSettings {
     subscribeToStorefront,
     () => (settingsCache ??= loadPaymentSettings()),
     () => DEFAULT_PAYMENT_SETTINGS
+  );
+}
+
+export function loadShippingSettings(): ShippingSettings {
+  try {
+    const raw = window.localStorage.getItem(SHIPPING_KEY);
+    if (!raw) return DEFAULT_SHIPPING_SETTINGS;
+    const parsed = JSON.parse(raw) as Partial<ShippingSettings>;
+    return {
+      ratePerKg: Number(parsed.ratePerKg) || DEFAULT_SHIPPING_SETTINGS.ratePerKg,
+      serviceCharge: Number(parsed.serviceCharge ?? DEFAULT_SHIPPING_SETTINGS.serviceCharge),
+    };
+  } catch {
+    return DEFAULT_SHIPPING_SETTINGS;
+  }
+}
+
+export function saveShippingSettings(
+  settings: ShippingSettings
+): { ok: true } | { ok: false; error: string } {
+  try {
+    window.localStorage.setItem(SHIPPING_KEY, JSON.stringify(settings));
+    emitChange();
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not save shipping settings." };
+  }
+}
+
+/** Live export rate and service charge. */
+export function useShippingSettings(): ShippingSettings {
+  return useSyncExternalStore(
+    subscribeToStorefront,
+    () => (shippingCache ??= loadShippingSettings()),
+    () => DEFAULT_SHIPPING_SETTINGS
   );
 }
 
@@ -113,8 +155,12 @@ export type Order = {
   customer: OrderCustomer;
   lines: CartLine[];
   itemTotal: number;
-  deliveryFee: number;
-  handlingFee: number;
+  /** Billable consignment weight and the export rate applied to it. */
+  weightKg: number;
+  ratePerKg: number;
+  shippingCost: number;
+  /** Transport + packaging + handling, combined into one line. */
+  serviceCharge: number;
   total: number;
   savings: number;
   /** Screenshot of the UPI payment, as a downscaled data URL. */
@@ -291,8 +337,9 @@ function makeDemoOrders(): Order[] {
     });
     const itemTotal = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
     const mrpTotal = lines.reduce((sum, line) => sum + line.mrp * line.qty, 0);
-    const deliveryFee = itemTotal >= 499 ? 0 : 35;
-    const handlingFee = 9;
+    const { ratePerKg, serviceCharge } = DEFAULT_SHIPPING_SETTINGS;
+    const weightKg = cartWeightKg(lines);
+    const shippingCost = Math.round(weightKg * ratePerKg);
 
     return {
       id,
@@ -300,9 +347,11 @@ function makeDemoOrders(): Order[] {
       customer: addresses[orderIndex % addresses.length],
       lines,
       itemTotal,
-      deliveryFee,
-      handlingFee,
-      total: itemTotal + deliveryFee + handlingFee,
+      weightKg,
+      ratePerKg,
+      shippingCost,
+      serviceCharge,
+      total: itemTotal + shippingCost + serviceCharge,
       savings: mrpTotal - itemTotal,
       paymentProof: null,
       paymentRef: `UTR2026${String(810042 + orderIndex * 137)}`,
@@ -351,6 +400,16 @@ export function saveOrder(order: Order): { ok: true } | { ok: false; error: stri
     } catch {
       return { ok: false, error: "Could not save the order — browser storage is full." };
     }
+  }
+}
+
+export function updateOrderStatus(id: string, status: Order["status"]): void {
+  const orders = loadOrders().map((o) => (o.id === id ? { ...o, status } : o));
+  try {
+    window.localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+    emitChange();
+  } catch {
+    // Non-fatal: the status just stays as it was.
   }
 }
 

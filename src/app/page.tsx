@@ -1,49 +1,33 @@
-import Link from "next/link";
 import { CategoryScroller } from "@/components/CategoryScroller";
-import { CategoryTiles } from "@/components/CategoryTiles";
 import { HeroCarousel } from "@/components/HeroCarousel";
+import { ProductCard } from "@/components/ProductCard";
 import { ProductRail } from "@/components/ProductRail";
 import { categories, products, productsByCategory } from "@/data/catalog";
 
-/** Rails shown on the home page, in order. */
-const RAILS: { category: string; title: string; subtitle: string }[] = [
-  { category: "fruits-vegetables", title: "Fresh fruits & vegetables", subtitle: "Sourced this morning" },
-  { category: "dairy-bread-eggs", title: "Dairy, bread & eggs", subtitle: "Your daily basket" },
-  { category: "cold-drinks-juices", title: "Cold drinks & juices", subtitle: "Chilled and ready" },
-  { category: "kitchenware", title: "Kitchen & appliances", subtitle: "Everything for your kitchen" },
-  { category: "beauty-personal-care", title: "Beauty & personal care", subtitle: "Top-rated picks" },
-  { category: "meat-fish", title: "Meat & fish", subtitle: "Fresh cuts, cold chain delivered" },
-  { category: "home-decor", title: "Home & decor", subtitle: "Small upgrades, big difference" },
-];
+/**
+ * Only a few category rails sit up top — enough to give the page shape without
+ * turning the whole home page into an endless list of rails. Everything else
+ * lands in the plain product grid below.
+ */
+const FEATURED_CATEGORIES = ["fruits-vegetables", "dairy-bread-eggs", "cold-drinks-juices"];
+
+const RAIL_COPY: Record<string, { title: string; subtitle: string }> = {
+  "fruits-vegetables": { title: "Fresh fruits & vegetables", subtitle: "Sourced this morning" },
+  "dairy-bread-eggs": { title: "Dairy, bread & eggs", subtitle: "Your daily basket" },
+  "cold-drinks-juices": { title: "Cold drinks & juices", subtitle: "Chilled and ready" },
+};
 
 export default function HomePage() {
-  const bestDeals = [...products]
-    .filter((p) => p.discountPct >= 10)
-    .sort((a, b) => b.discountPct - a.discountPct)
-    .slice(0, 12);
-
-  const topRated = [...products].sort((a, b) => b.rating - a.rating).slice(0, 12);
-
-  const multiPack = products.filter((p) => p.variants.length >= 3).slice(0, 12);
+  // Products already shown in a rail above shouldn't repeat in the grid below.
+  const featuredIds = new Set(
+    FEATURED_CATEGORIES.flatMap((slug) => productsByCategory(slug).map((p) => p.id))
+  );
+  const rest = products.filter((p) => !featuredIds.has(p.id));
 
   return (
     <div className="mx-auto max-w-[1400px] lg:px-6">
-      {/* Shop by category — above the banners */}
-      <section className="px-3 pt-4 sm:px-4 lg:px-0">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-base font-bold text-ink-900 sm:text-lg">Shop by category</h2>
-          <Link
-            href="/category"
-            className="text-xs font-bold text-accent-500 transition-colors hover:text-accent-600"
-          >
-            See all
-          </Link>
-        </div>
-        <CategoryTiles items={categories} />
-      </section>
-
       {/* Hero banners */}
-      <div className="px-3 pt-5 sm:px-4 lg:px-0">
+      <div className="px-3 pt-3 sm:px-4 lg:px-0">
         <HeroCarousel />
       </div>
 
@@ -54,38 +38,34 @@ export default function HomePage() {
 
       <Divider />
 
-      <ProductRail
-        title="Best deals of the day"
-        subtitle="Biggest savings, while stocks last"
-        products={bestDeals}
-        priority
-      />
-
-      <ProductRail
-        title="Buy bigger, save more"
-        subtitle="Multiple pack sizes — pick what suits you"
-        products={multiPack}
-      />
-
-      <Divider />
-
-      {RAILS.map((rail) => {
-        const items = productsByCategory(rail.category);
+      {/* A few category rails */}
+      {FEATURED_CATEGORIES.map((slug) => {
+        const items = productsByCategory(slug);
         if (!items.length) return null;
+        const copy = RAIL_COPY[slug];
         return (
           <ProductRail
-            key={rail.category}
-            title={rail.title}
-            subtitle={rail.subtitle}
-            href={`/category/${rail.category}`}
+            key={slug}
+            title={copy.title}
+            subtitle={copy.subtitle}
+            href={`/category/${slug}`}
             products={items}
+            priority={slug === FEATURED_CATEGORIES[0]}
           />
         );
       })}
 
       <Divider />
 
-      <ProductRail title="Top rated by customers" subtitle="4★ and above" products={topRated} />
+      {/* Everything else, as a plain product grid */}
+      <section className="px-3 pb-6 pt-2 sm:px-4 lg:px-0">
+        <h2 className="mb-3 text-base font-bold text-ink-900 sm:text-lg">All products</h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          {rest.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

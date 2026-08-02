@@ -5,14 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PaymentUpload } from "@/components/checkout/PaymentUpload";
-import { BoltIcon, CartIcon, CheckIcon, ChevronRight } from "@/components/icons";
+import { CartIcon, CheckIcon, ChevronDown, ChevronRight } from "@/components/icons";
 import { useCart } from "@/context/CartContext";
 import { inr } from "@/lib/format";
-import { generateOrderId, saveOrder, usePaymentSettings, type Order } from "@/lib/storefront";
+import { quoteCart } from "@/lib/shipping";
+import {
+  generateOrderId,
+  saveOrder,
+  usePaymentSettings,
+  useShippingSettings,
+  type Order,
+} from "@/lib/storefront";
+import { BillBreakdown } from "@/components/BillBreakdown";
 
-const DELIVERY_FEE = 25;
-const FREE_DELIVERY_OVER = 499;
-const HANDLING_FEE = 9;
 
 type Form = {
   name: string;
@@ -62,9 +67,13 @@ export function CheckoutClient() {
   const [placing, setPlacing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [openStep, setOpenStep] = useState<number | null>(1);
 
-  const deliveryFee = subtotal >= FREE_DELIVERY_OVER ? 0 : DELIVERY_FEE;
-  const total = subtotal + deliveryFee + HANDLING_FEE;
+  const toggleStep = (step: number) => setOpenStep((s) => (s === step ? null : step));
+
+  const shippingSettings = useShippingSettings();
+  const quote = quoteCart(lines, subtotal, shippingSettings);
+  const total = quote.total;
 
   const fieldErrors = useMemo(() => validate(form), [form]);
 
@@ -74,6 +83,19 @@ export function CheckoutClient() {
 
   const canPlace =
     Object.keys(errors).length === 0 && lines.length > 0 && Boolean(settings.qrDataUrl);
+
+  const addressComplete = Object.keys(fieldErrors).length === 0;
+  const addressSummary = addressComplete
+    ? `${form.name}, ${form.phone} · ${form.address}, ${form.city} ${form.pincode}`
+    : "Name, phone and delivery address";
+  const paySummary = settings.qrDataUrl
+    ? `Scan & pay ${inr(total)}${settings.upiId ? ` · ${settings.upiId}` : ""}`
+    : "No payment QR configured yet";
+  const proofSummary = proof
+    ? confirmed
+      ? "Screenshot uploaded and payment confirmed"
+      : "Screenshot uploaded — confirm your payment"
+    : "Upload your payment screenshot";
 
   const showError = (field: keyof Form) =>
     (touched[field] || submitAttempted) && fieldErrors[field];
@@ -118,8 +140,10 @@ export function CheckoutClient() {
       },
       lines,
       itemTotal: subtotal,
-      deliveryFee,
-      handlingFee: HANDLING_FEE,
+      weightKg: quote.weightKg,
+      ratePerKg: quote.ratePerKg,
+      shippingCost: quote.shippingCost,
+      serviceCharge: quote.serviceCharge,
       total,
       savings,
       paymentProof: proof,
@@ -161,7 +185,7 @@ export function CheckoutClient() {
         </span>
         <h1 className="mt-4 text-lg font-bold text-ink-900">Your cart is empty</h1>
         <p className="mt-1 text-sm text-ink-500">
-          Add a few items and come back to complete your order.
+          Add a few items to get started.
         </p>
         <Link
           href="/"
@@ -194,7 +218,14 @@ export function CheckoutClient() {
         {/* ---------------- left: steps ---------------- */}
         <div className="flex min-w-0 flex-col gap-4">
           {/* Step 1 — address */}
-          <Section step={1} title="Delivery details">
+          <Section
+            step={1}
+            title="Delivery details"
+            open={openStep === 1}
+            onToggle={() => toggleStep(1)}
+            complete={addressComplete}
+            summary={addressSummary}
+          >
             <div className="grid gap-3 sm:grid-cols-2">
               <Field
                 label="Full name"
@@ -255,10 +286,22 @@ export function CheckoutClient() {
                 placeholder="411007"
               />
             </div>
+            <ContinueButton
+              label="Continue to payment"
+              onClick={() => setOpenStep(2)}
+              disabled={!addressComplete}
+            />
           </Section>
 
           {/* Step 2 — pay */}
-          <Section step={2} title="Pay by UPI">
+          <Section
+            step={2}
+            title="Pay by UPI"
+            open={openStep === 2}
+            onToggle={() => toggleStep(2)}
+            complete={Boolean(proof)}
+            summary={paySummary}
+          >
             {settings.qrDataUrl ? (
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="mx-auto w-full max-w-[15rem] shrink-0 sm:mx-0">
@@ -273,7 +316,7 @@ export function CheckoutClient() {
                     />
                   </div>
                   <p className="mt-2 text-center text-[11px] text-ink-500">
-                    Scan with GPay, PhonePe, Paytm or any UPI app
+                    Scan with any UPI app
                   </p>
                 </div>
 
@@ -286,7 +329,7 @@ export function CheckoutClient() {
                       {inr(total)}
                     </p>
                     <p className="mt-1 text-[11px] text-brand-700">
-                      Pay this exact amount so we can match your payment.
+                      Pay this exact amount.
                     </p>
                   </div>
 
@@ -326,18 +369,26 @@ export function CheckoutClient() {
                   UPI payment is temporarily unavailable
                 </p>
                 <p className="mt-1 text-[12px] leading-relaxed text-amber-800">
-                  Payment details have not been configured for this store. Please try checkout
-                  again later.
+                  Please try again later.
                 </p>
               </div>
+            )}
+            {settings.qrDataUrl && (
+              <ContinueButton label="I've paid — upload proof" onClick={() => setOpenStep(3)} />
             )}
           </Section>
 
           {/* Step 3 — proof */}
-          <Section step={3} title="Upload payment proof">
+          <Section
+            step={3}
+            title="Upload payment proof"
+            open={openStep === 3}
+            onToggle={() => toggleStep(3)}
+            complete={Boolean(proof) && confirmed}
+            summary={proofSummary}
+          >
             <p className="-mt-1 mb-3 text-[12px] leading-relaxed text-ink-500">
-              After paying, upload a screenshot of the successful payment. Your order is
-              confirmed once we verify it.
+              Upload a screenshot of your successful payment.
             </p>
 
             <PaymentUpload
@@ -357,8 +408,7 @@ export function CheckoutClient() {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-[11px] font-semibold text-ink-700">
-                  UPI transaction / reference ID{" "}
-                  <span className="font-normal text-ink-400">(optional)</span>
+                  Transaction ID <span className="font-normal text-ink-400">(optional)</span>
                 </span>
                 <input
                   value={paymentRef}
@@ -369,7 +419,7 @@ export function CheckoutClient() {
               </label>
               <label className="block">
                 <span className="mb-1 block text-[11px] font-semibold text-ink-700">
-                  Note for the store <span className="font-normal text-ink-400">(optional)</span>
+                  Note <span className="font-normal text-ink-400">(optional)</span>
                 </span>
                 <input
                   value={paymentNote}
@@ -401,9 +451,8 @@ export function CheckoutClient() {
                 {confirmed && <CheckIcon className="h-3 w-3 text-white" strokeWidth={3.5} />}
               </span>
               <span className="text-[12px] leading-relaxed text-ink-700">
-                I confirm I have paid{" "}
-                <span className="font-bold text-ink-900">{inr(total)}</span> and that the
-                screenshot uploaded above is the correct, complete proof of that payment.
+                I&apos;ve paid <span className="font-bold text-ink-900">{inr(total)}</span> and uploaded
+                the correct screenshot.
               </span>
             </label>
             {submitAttempted && errors.confirm && (
@@ -431,8 +480,9 @@ export function CheckoutClient() {
                     <span className="line-clamp-1 block text-[12px] font-medium text-ink-900">
                       {l.name}
                     </span>
-                    <span className="block text-[11px] text-ink-500">
-                      {l.variantLabel} × {l.qty}
+                    <span className="mt-0.5 block">
+                      <span className="rounded bg-accent-50 px-1.5 py-px text-[10px] font-bold text-accent-500">{l.variantLabel}</span>
+                      <span className="ml-1 text-[11px] text-ink-500">× {l.qty}</span>
                     </span>
                   </span>
                   <span className="shrink-0 text-[12px] font-bold tabular-nums text-ink-900">
@@ -442,42 +492,8 @@ export function CheckoutClient() {
               ))}
             </ul>
 
-            <dl className="flex flex-col gap-1.5 border-t border-ink-100 px-4 py-3 text-xs">
-              <div className="flex justify-between text-ink-700">
-                <dt>Item total</dt>
-                <dd className="tabular-nums">{inr(subtotal)}</dd>
-              </div>
-              <div className="flex justify-between text-ink-700">
-                <dt>Delivery fee</dt>
-                <dd className="tabular-nums">
-                  {deliveryFee === 0 ? (
-                    <span className="font-semibold text-save-500">FREE</span>
-                  ) : (
-                    inr(deliveryFee)
-                  )}
-                </dd>
-              </div>
-              <div className="flex justify-between text-ink-700">
-                <dt>Handling charge</dt>
-                <dd className="tabular-nums">{inr(HANDLING_FEE)}</dd>
-              </div>
-              <div className="mt-1.5 flex justify-between border-t border-dashed border-ink-200 pt-2 text-[15px] font-bold text-ink-900">
-                <dt>To pay</dt>
-                <dd className="tabular-nums">{inr(total)}</dd>
-              </div>
-            </dl>
-
-            {savings > 0 && (
-              <p className="mx-4 mb-3 rounded-lg bg-save-50 px-2.5 py-1.5 text-center text-[11px] font-bold text-save-500">
-                You save {inr(savings)} on this order
-              </p>
-            )}
-
             <div className="border-t border-ink-100 px-4 py-3">
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-700">
-                <BoltIcon className="h-3 w-3 text-brand-500" />
-                Delivery to your address
-              </p>
+              <BillBreakdown quote={quote} savings={savings} />
             </div>
           </div>
 
@@ -498,7 +514,7 @@ export function CheckoutClient() {
           </button>
           {!canPlace && submitAttempted && (
             <p className="mt-1.5 hidden text-center text-[11px] text-ink-500 lg:block">
-              Complete the highlighted steps above to continue.
+              Complete the steps above.
             </p>
           )}
         </aside>
@@ -525,25 +541,100 @@ export function CheckoutClient() {
 
 /* ---------------- small building blocks ---------------- */
 
+/**
+ * Collapsible checkout step. Only one is open at a time, so the page never looks
+ * like a wall of fields — completed steps collapse to a one-line summary.
+ */
 function Section({
   step,
   title,
+  open,
+  onToggle,
+  complete,
+  summary,
   children,
 }: {
   step: number;
   title: string;
+  open: boolean;
+  onToggle: () => void;
+  complete?: boolean;
+  summary?: string;
   children: React.ReactNode;
 }) {
+  const panelId = `checkout-step-${step}`;
+
   return (
-    <section className="rounded-xl border border-ink-100 p-4">
-      <h2 className="mb-3.5 flex items-center gap-2.5 text-sm font-bold text-ink-900">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-700 text-[11px] font-bold text-white">
-          {step}
-        </span>
-        {title}
+    <section
+      className={`overflow-hidden rounded-xl border transition-colors ${
+        open ? "border-ink-200" : "border-ink-100"
+      }`}
+    >
+      <h2>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex w-full items-center gap-2.5 p-4 text-left transition-colors hover:bg-ink-50"
+        >
+          <span
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white transition-colors ${
+              complete ? "bg-save-500" : "bg-brand-700"
+            }`}
+          >
+            {complete ? <CheckIcon className="h-3 w-3" strokeWidth={3.5} /> : step}
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-ink-900">{title}</span>
+            {!open && summary && (
+              <span className="mt-0.5 block truncate text-[11px] text-ink-500">{summary}</span>
+            )}
+          </span>
+
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-ink-500 transition-transform duration-200 ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </button>
       </h2>
-      {children}
+
+      {/* 0fr → 1fr animates to the content's natural height */}
+      <div
+        id={panelId}
+        className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-4 pb-4">{children}</div>
+        </div>
+      </div>
     </section>
+  );
+}
+
+/** Advances the accordion to the next step. */
+function ContinueButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mt-4 h-10 w-full rounded-lg bg-brand-700 text-[13px] font-bold text-white transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-ink-200 sm:w-auto sm:px-6"
+    >
+      {label}
+    </button>
   );
 }
 

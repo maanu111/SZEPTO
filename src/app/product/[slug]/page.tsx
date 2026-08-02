@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Collapsible } from "@/components/Collapsible";
 import { ProductBuyBox } from "@/components/ProductBuyBox";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ProductRail } from "@/components/ProductRail";
@@ -75,8 +76,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </h1>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-ink-500">
-            <span>{product.unit}</span>
-            <span aria-hidden="true">&middot;</span>
+            <span className="rounded bg-accent-50 px-1.5 py-0.5 text-[11px] font-bold text-accent-500">
+              {product.unit}
+            </span>
             <span>{product.brand}</span>
             {product.rating > 0 && (
               <span className="flex items-center gap-0.5 rounded bg-save-50 px-1.5 py-0.5 font-semibold text-save-500">
@@ -93,82 +95,83 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
           <ProductBuyBox product={product} />
 
-          {/* Highlights */}
-          <section className="mt-6">
-            <h2 className="text-sm font-bold text-ink-900">Product details</h2>
-            <dl className="mt-2.5 overflow-hidden rounded-xl border border-ink-100">
-              {highlights.map(([label, value], i) => (
-                <div
-                  key={label}
-                  className={`grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 px-3 py-2.5 text-[13px] sm:grid-cols-[9rem_minmax(0,1fr)] ${
-                    i % 2 ? "bg-white" : "bg-ink-50"
-                  }`}
-                >
-                  <dt className="text-ink-500">{label}</dt>
-                  <dd className="font-medium text-ink-900">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          {/* Description */}
-          <section className="mt-5">
-            <h2 className="text-sm font-bold text-ink-900">About this product</h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-700">{product.description}</p>
-            {product.tags.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {product.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-700"
+          {/* Collapsed by default — the buy decision shouldn't sit under a wall of text */}
+          <div className="mt-6">
+            <Collapsible title="Product details">
+              <dl className="overflow-hidden rounded-xl border border-ink-100">
+                {highlights.map(([label, value], i) => (
+                  <div
+                    key={label}
+                    className={`grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 px-3 py-2.5 text-[13px] sm:grid-cols-[9rem_minmax(0,1fr)] ${
+                      i % 2 ? "bg-white" : "bg-ink-50"
+                    }`}
                   >
-                    {t}
-                  </span>
+                    <dt className="text-ink-500">{label}</dt>
+                    <dd className="font-medium text-ink-900">{value}</dd>
+                  </div>
                 ))}
-              </div>
+              </dl>
+            </Collapsible>
+
+            <Collapsible title="About this product">
+              <p className="text-[13px] leading-relaxed text-ink-700">{product.description}</p>
+              {product.tags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {product.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-700"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Collapsible>
+
+            {product.reviews.length > 0 && (
+              <Collapsible
+                title="Customer reviews"
+                meta={`(${product.reviews.length})`}
+              >
+                <ul className="flex flex-col gap-3">
+                  {product.reviews.map((r, i) => (
+                    <li
+                      key={`${r.reviewerName}-${i}`}
+                      className="rounded-xl border border-ink-100 p-3.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+                          {r.reviewerName.slice(0, 1).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-ink-900">
+                            {r.reviewerName}
+                          </p>
+                          <p
+                            className="flex items-center gap-0.5"
+                            aria-label={`${r.rating} out of 5`}
+                          >
+                            {Array.from({ length: 5 }, (_, s) => (
+                              <StarIcon
+                                key={s}
+                                className={`h-2.5 w-2.5 ${
+                                  s < r.rating ? "text-save-500" : "text-ink-200"
+                                }`}
+                              />
+                            ))}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-2.5 text-[13px] leading-relaxed text-ink-700">{r.comment}</p>
+                    </li>
+                  ))}
+                </ul>
+              </Collapsible>
             )}
-          </section>
+          </div>
         </div>
       </div>
-
-      {/* Reviews */}
-      {product.reviews.length > 0 && (
-        <section className="mt-8 border-t border-ink-100 pt-6">
-          <h2 className="text-base font-bold text-ink-900">
-            Customer reviews
-            <span className="ml-1.5 text-xs font-medium text-ink-500">
-              ({product.reviews.length})
-            </span>
-          </h2>
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {product.reviews.map((r, i) => (
-              <li key={`${r.reviewerName}-${i}`} className="rounded-xl border border-ink-100 p-3.5">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
-                    {r.reviewerName.slice(0, 1).toUpperCase()}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-ink-900">
-                      {r.reviewerName}
-                    </p>
-                    <p className="flex items-center gap-0.5" aria-label={`${r.rating} out of 5`}>
-                      {Array.from({ length: 5 }, (_, s) => (
-                        <StarIcon
-                          key={s}
-                          className={`h-2.5 w-2.5 ${
-                            s < r.rating ? "text-save-500" : "text-ink-200"
-                          }`}
-                        />
-                      ))}
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-2.5 text-[13px] leading-relaxed text-ink-700">{r.comment}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {/* Similar */}
       {similar.length > 0 && (

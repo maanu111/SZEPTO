@@ -142,6 +142,26 @@ body {
   border-radius: 999px;
 }
 
+/* Category strip: a slim but always-visible scrollbar, so the row reads as scrollable */
+.category-rail {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-200) var(--color-ink-50);
+}
+.category-rail::-webkit-scrollbar {
+  height: 6px;
+}
+.category-rail::-webkit-scrollbar-track {
+  background: var(--color-ink-50);
+  border-radius: 999px;
+}
+.category-rail::-webkit-scrollbar-thumb {
+  background: var(--color-ink-200);
+  border-radius: 999px;
+}
+.category-rail::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-400);
+}
+
 .skeleton {
   background: linear-gradient(
     90deg,

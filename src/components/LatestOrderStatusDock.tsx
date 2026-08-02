@@ -13,8 +13,6 @@ function presentation(status: Order["status"]) {
     return {
       title: "Payment confirmed",
       subtitle: "Your order is being prepared",
-      accent: "bg-emerald-400",
-      icon: "bg-emerald-400/15 text-emerald-300 ring-emerald-300/25",
       progress: 100,
     };
   }
@@ -22,16 +20,12 @@ function presentation(status: Order["status"]) {
     return {
       title: "Order cancelled",
       subtitle: "View the order for more information",
-      accent: "bg-red-400",
-      icon: "bg-red-400/15 text-red-300 ring-red-300/25",
       progress: 100,
     };
   }
   return {
     title: "Payment being verified",
     subtitle: "We received your payment proof",
-    accent: "bg-amber-400",
-    icon: "bg-amber-400/15 text-amber-300 ring-amber-300/25",
     progress: 66,
   };
 }
@@ -74,7 +68,7 @@ export function LatestOrderStatusDock() {
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((current) => !current)}
-          className="absolute left-1/2 top-0 z-10 flex h-7 -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-ink-100 bg-white px-3 text-[11px] font-extrabold text-accent-500 shadow-card transition-colors hover:bg-accent-50"
+          className="absolute left-1/2 top-0 z-10 flex h-7 -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-[#fbf0c4] px-3 text-[11px] font-extrabold text-[#c20e5c] shadow-card transition-opacity hover:opacity-90"
         >
           Order status
           <ChevronDown
@@ -83,16 +77,14 @@ export function LatestOrderStatusDock() {
           />
         </button>
 
-        <div className="overflow-hidden rounded-[1.35rem] bg-[#293240] text-white shadow-[0_12px_35px_rgba(20,24,32,0.28)] ring-1 ring-white/5">
+        <div className="overflow-hidden rounded-[1.35rem] bg-[#c20e5c] text-white shadow-[0_12px_35px_rgba(140,10,66,0.32)]">
           <button
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((current) => !current)}
-            className="flex min-h-[5.25rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.035]"
+            className="flex min-h-[5.25rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.06]"
           >
-            <span
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-4 ${view.icon}`}
-            >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fbf0c4] text-[#c20e5c]">
               {order.status === "Confirmed" ? (
                 <CheckIcon className="h-5 w-5" strokeWidth={3} />
               ) : (
@@ -104,14 +96,14 @@ export function LatestOrderStatusDock() {
                 <span className="truncate text-[15px] font-extrabold leading-tight">
                   {view.title}
                 </span>
-                <span className={`h-2 w-2 shrink-0 rounded-full ${view.accent}`} />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[#fbf0c4]" />
               </span>
-              <span className="mt-1 block truncate text-[12px] font-medium text-white/65">
+              <span className="mt-1 block truncate text-[12px] font-medium text-[#fbf0c4]/80">
                 {view.subtitle}
               </span>
             </span>
             <span className="shrink-0 text-right">
-              <span className="block text-[11px] font-bold text-white/55">{order.id}</span>
+              <span className="block text-[11px] font-bold text-[#fbf0c4]/70">{order.id}</span>
               <span className="mt-0.5 block text-sm font-extrabold tabular-nums">
                 {inr(order.total)}
               </span>
@@ -124,32 +116,32 @@ export function LatestOrderStatusDock() {
             }`}
           >
             <div className="min-h-0 overflow-hidden">
-              <div className="border-t border-white/10 px-4 pb-4 pt-3">
-                <div className="flex items-center justify-between text-[10px] font-bold text-white/55">
+              <div className="border-t border-[#fbf0c4]/25 px-4 pb-4 pt-3">
+                <div className="flex items-center justify-between text-[10px] font-bold text-[#fbf0c4]/75">
                   <span>Order placed</span>
                   <span>{order.status === "Confirmed" ? "Confirmed" : order.status === "Cancelled" ? "Cancelled" : "Verification"}</span>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#fbf0c4]/25">
                   <div
-                    className={`h-full rounded-full transition-[width] duration-500 ${view.accent}`}
+                    className="h-full rounded-full bg-[#fbf0c4] transition-[width] duration-500"
                     style={{ width: `${view.progress}%` }}
                   />
                 </div>
 
-                <div className="mt-3 grid grid-cols-3 divide-x divide-white/10 rounded-xl bg-white/[0.055] py-2.5 text-center">
+                <div className="mt-3 grid grid-cols-3 divide-x divide-[#c20e5c]/15 rounded-xl bg-[#fbf0c4] py-2.5 text-center">
                   <span>
-                    <span className="block text-[10px] font-medium text-white/45">Placed</span>
-                    <span className="mt-0.5 block text-[11px] font-bold text-white/85">{placed}</span>
+                    <span className="block text-[10px] font-medium text-[#c20e5c]/60">Placed</span>
+                    <span className="mt-0.5 block text-[11px] font-bold text-[#c20e5c]">{placed}</span>
                   </span>
                   <span>
-                    <span className="block text-[10px] font-medium text-white/45">Items</span>
-                    <span className="mt-0.5 block text-[11px] font-bold text-white/85">
+                    <span className="block text-[10px] font-medium text-[#c20e5c]/60">Items</span>
+                    <span className="mt-0.5 block text-[11px] font-bold text-[#c20e5c]">
                       {totalItems}
                     </span>
                   </span>
                   <span>
-                    <span className="block text-[10px] font-medium text-white/45">Total</span>
-                    <span className="mt-0.5 block text-[11px] font-bold text-white/85">
+                    <span className="block text-[10px] font-medium text-[#c20e5c]/60">Total</span>
+                    <span className="mt-0.5 block text-[11px] font-bold text-[#c20e5c]">
                       {inr(order.total)}
                     </span>
                   </span>
@@ -157,7 +149,7 @@ export function LatestOrderStatusDock() {
 
                 <Link
                   href={`/order/${order.id}`}
-                  className="mt-3 flex h-10 items-center justify-center rounded-xl bg-white text-xs font-extrabold text-[#293240] transition-colors hover:bg-white/90"
+                  className="mt-3 flex h-10 items-center justify-center rounded-xl bg-[#fbf0c4] text-xs font-extrabold text-[#c20e5c] transition-opacity hover:opacity-90"
                 >
                   View complete order
                 </Link>

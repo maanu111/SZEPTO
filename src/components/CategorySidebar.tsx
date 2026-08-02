@@ -57,6 +57,7 @@ export function CategorySidebar({ activeSlug }: { activeSlug: string }) {
                         alt=""
                         fill
                         sizes="44px"
+                        priority={active}
                         className="object-contain p-1.5"
                       />
                     )}

@@ -204,7 +204,7 @@ export function SearchBox({
                         >
                           {p.name}
                         </Link>
-                        <p className="text-[11px] text-ink-500">{p.unit}</p>
+                        <p className="mt-0.5"><span className="rounded bg-accent-50 px-1.5 py-px text-[10px] font-bold text-accent-500">{p.unit}</span></p>
                         <p className="mt-0.5 flex items-baseline gap-1.5">
                           <span className="text-[13px] font-bold text-ink-900">{inr(p.price)}</span>
                           {p.mrp > p.price && (

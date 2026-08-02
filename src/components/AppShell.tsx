@@ -9,7 +9,7 @@ import { CartDrawer } from "./CartDrawer";
 import { Header } from "./Header";
 import { LatestOrderStatusDock } from "./LatestOrderStatusDock";
 import type { SearchBoxHandle } from "./SearchBox";
-import { StickyCartBar } from "./StickyCartBar";
+import { BottomBar } from "./BottomBar";
 
 /**
  * Client shell: providers plus every globally-mounted surface (cart drawer, pack modal,
@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <CartDrawer />
         <AddedToCartBanner />
         <LatestOrderStatusDock />
-        <StickyCartBar />
+        <BottomBar />
         <BottomNav />
       </VariantModalProvider>
     </CartProvider>
