@@ -29,7 +29,13 @@ export function BillBreakdown({
           <dt className="min-w-0">
             Shipping
             <span className="mt-0.5 block text-[10px] leading-snug text-ink-400">
-              {formatWeight(quote.weightKg)} × {inr(quote.ratePerKg)}/kg
+              <span className="rounded bg-accent-50 px-1 py-px font-bold text-accent-500">
+                {formatWeight(quote.weightKg)}
+              </span>{" "}
+              ×{" "}
+              <span className="rounded bg-accent-50 px-1 py-px font-bold text-accent-500">
+                {inr(quote.ratePerKg)}/kg
+              </span>
             </span>
           </dt>
           <dd className="shrink-0 tabular-nums">{inr(quote.shippingCost)}</dd>

@@ -1,8 +1,8 @@
-import { CategoryScroller } from "@/components/CategoryScroller";
+import { CategoryPanels } from "@/components/CategoryPanels";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductRail } from "@/components/ProductRail";
-import { categories, products, productsByCategory } from "@/data/catalog";
+import { products, productsByCategory } from "@/data/catalog";
 
 /**
  * Only a few category rails sit up top — enough to give the page shape without
@@ -31,9 +31,9 @@ export default function HomePage() {
         <HeroCarousel />
       </div>
 
-      {/* Inline scrollable category strip, directly under the banners */}
+      {/* Grouped category panels, directly under the banners */}
       <section aria-label="Browse categories" className="px-3 pt-4 sm:px-4 lg:px-0">
-        <CategoryScroller items={categories} />
+        <CategoryPanels />
       </section>
 
       <Divider />

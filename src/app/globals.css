@@ -98,36 +98,6 @@ body {
   display: none;
 }
 
-/* Keep category scrolling discoverable on touch screens; desktop uses arrow buttons. */
-[data-category-scroller] {
-  scroll-snap-type: x proximity;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-brand-300) transparent;
-}
-[data-category-scroller] > a {
-  scroll-snap-align: start;
-}
-[data-category-scroller]::-webkit-scrollbar {
-  display: block;
-  height: 4px;
-}
-[data-category-scroller]::-webkit-scrollbar-track {
-  background: transparent;
-}
-[data-category-scroller]::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--color-brand-300);
-}
-
-@media (min-width: 1024px) {
-  [data-category-scroller] {
-    scrollbar-width: none;
-  }
-  [data-category-scroller]::-webkit-scrollbar {
-    display: none;
-  }
-}
-
 /* Slim scrollbar for the category sidebar / cart list */
 .thin-scrollbar {
   scrollbar-width: thin;
@@ -140,26 +110,6 @@ body {
 .thin-scrollbar::-webkit-scrollbar-thumb {
   background: var(--color-ink-200);
   border-radius: 999px;
-}
-
-/* Category strip: a slim but always-visible scrollbar, so the row reads as scrollable */
-.category-rail {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-ink-200) var(--color-ink-50);
-}
-.category-rail::-webkit-scrollbar {
-  height: 6px;
-}
-.category-rail::-webkit-scrollbar-track {
-  background: var(--color-ink-50);
-  border-radius: 999px;
-}
-.category-rail::-webkit-scrollbar-thumb {
-  background: var(--color-ink-200);
-  border-radius: 999px;
-}
-.category-rail::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-400);
 }
 
 .skeleton {
