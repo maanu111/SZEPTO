@@ -39,7 +39,15 @@ export default async function RootLayout({
         <AppShell footer={<SiteFooter />}>
           {/* Catalog and settings edits in the admin reach shoppers without a reload */}
           <RealtimeRefresh
-            tables={["products", "product_variants", "categories", "banners", "store_settings", "pages"]}
+            tables={[
+              "products",
+              "product_variants",
+              "categories",
+              "banners",
+              "store_settings",
+              "pages",
+              "orders",
+            ]}
           />
           {children}
         </AppShell>

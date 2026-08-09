@@ -6,43 +6,32 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CheckIcon, ChevronLeft, OrdersIcon } from "@/components/icons";
 import { inr } from "@/lib/format";
+import {
+  ORDER_STEPS,
+  STEP_LABELS,
+  canCancel,
+  completedSteps,
+  statusView,
+} from "@/lib/orderStatus";
 import { cancelOrder, useOrder, type Order } from "@/lib/storefront";
 import { useIsMounted } from "@/lib/useIsMounted";
 
-function statusMeta(status: Order["status"]) {
-  if (status === "confirmed") {
-    return {
-      chip: "bg-save-50 text-save-600",
-      panel: "border-save-500/20 bg-save-50",
-      title: "Payment verified",
-      message: "Your payment is confirmed and the store is preparing this order.",
-    };
-  }
-  if (status === "cancelled") {
-    return {
-      chip: "bg-red-50 text-red-700",
-      panel: "border-red-200 bg-red-50",
-      title: "Order cancelled",
-      message: "This order was cancelled. Contact the store if you need help with the payment.",
-    };
-  }
-  return {
-    chip: "bg-amber-50 text-amber-800",
-    panel: "border-amber-200 bg-amber-50",
-    title: "Payment verification in progress",
-    message: "The store has received your screenshot and will verify the payment shortly.",
-  };
-}
-
 function OrderProgress({ status }: { status: Order["status"] }) {
-  const finalLabel = status === "cancelled" ? "Cancelled" : "Payment verified";
-  const completed = status === "pending" ? 2 : 3;
+  const completed = completedSteps(status);
+  // A cancelled order keeps its earned steps and marks the next one red.
+  const labels =
+    status === "cancelled"
+      ? ["Placed", "Cancelled"]
+      : ORDER_STEPS.map((step) => STEP_LABELS[step]);
 
   return (
-    <ol className="mt-4 grid grid-cols-3" aria-label="Order progress">
-      {["Order placed", "Payment submitted", finalLabel].map((label, index) => {
-        const done = index < completed;
-        const cancelled = status === "cancelled" && index === 2;
+    <ol
+      className={`mt-4 grid ${status === "cancelled" ? "grid-cols-2" : "grid-cols-4"}`}
+      aria-label="Order progress"
+    >
+      {labels.map((label, index) => {
+        const cancelled = status === "cancelled" && index === 1;
+        const done = cancelled || index < completed;
         return (
           <li key={label} className="relative flex min-w-0 flex-col items-center text-center">
             {index > 0 && (
@@ -120,7 +109,7 @@ export function OrderClient({ orderId }: { orderId: string }) {
     );
   }
 
-  const status = statusMeta(order.status);
+  const status = statusView(order.status);
   const placed = new Date(order.placedAt).toLocaleString("en-IN", {
     day: "numeric",
     month: "short",
@@ -150,7 +139,7 @@ export function OrderClient({ orderId }: { orderId: string }) {
         <span
           className={`w-fit shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold ${status.chip}`}
         >
-          {order.status}
+          {status.label}
         </span>
       </div>
 
@@ -219,7 +208,7 @@ export function OrderClient({ orderId }: { orderId: string }) {
       </section>
 
       {/* 4 — cancel, only while the order is still in progress */}
-      {order.status === "pending" && (
+      {canCancel(order.status) && (
         <div className="mt-4">
           {confirmingCancel ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4">

@@ -5,30 +5,9 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { inr } from "@/lib/format";
-import { useOrders, type Order } from "@/lib/storefront";
-import { CheckIcon, ChevronDown, OrdersIcon } from "./icons";
-
-function presentation(status: Order["status"]) {
-  if (status === "confirmed") {
-    return {
-      title: "Payment confirmed",
-      subtitle: "Your order is being prepared",
-      progress: 100,
-    };
-  }
-  if (status === "cancelled") {
-    return {
-      title: "Order cancelled",
-      subtitle: "View the order for more information",
-      progress: 100,
-    };
-  }
-  return {
-    title: "Payment being verified",
-    subtitle: "We received your payment proof",
-    progress: 66,
-  };
-}
+import { statusView } from "@/lib/orderStatus";
+import { useOrders } from "@/lib/storefront";
+import { CheckIcon, ChevronDown, OrdersIcon, TruckIcon } from "./icons";
 
 export function LatestOrderStatusDock() {
   const pathname = usePathname();
@@ -44,7 +23,7 @@ export function LatestOrderStatusDock() {
 
   if (!order || hidden || cartOpen) return null;
 
-  const view = presentation(order.status);
+  const view = statusView(order.status);
   const hasCart = hydrated && itemCount > 0;
   const totalItems = order.lines.reduce((sum, line) => sum + line.qty, 0);
   const placed = new Date(order.placedAt).toLocaleString("en-IN", {
@@ -85,8 +64,10 @@ export function LatestOrderStatusDock() {
             className="flex min-h-[5.25rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.06]"
           >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fbf0c4] text-[#c20e5c]">
-              {order.status === "confirmed" ? (
+              {order.status === "confirmed" || order.status === "delivered" ? (
                 <CheckIcon className="h-5 w-5" strokeWidth={3} />
+              ) : order.status === "shipped" ? (
+                <TruckIcon className="h-5 w-5" strokeWidth={2} />
               ) : (
                 <OrdersIcon className="h-5 w-5" strokeWidth={2} />
               )}
@@ -99,7 +80,7 @@ export function LatestOrderStatusDock() {
                 <span className="h-2 w-2 shrink-0 rounded-full bg-[#fbf0c4]" />
               </span>
               <span className="mt-1 block truncate text-[12px] font-medium text-[#fbf0c4]/80">
-                {view.subtitle}
+                {view.dockSubtitle}
               </span>
             </span>
             <span className="shrink-0 text-right">
@@ -119,7 +100,7 @@ export function LatestOrderStatusDock() {
               <div className="border-t border-[#fbf0c4]/25 px-4 pb-4 pt-3">
                 <div className="flex items-center justify-between text-[10px] font-bold text-[#fbf0c4]/75">
                   <span>Order placed</span>
-                  <span>{order.status === "confirmed" ? "Confirmed" : order.status === "cancelled" ? "Cancelled" : "Verification"}</span>
+                  <span>{view.label}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#fbf0c4]/25">
                   <div

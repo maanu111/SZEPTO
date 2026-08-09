@@ -11,7 +11,10 @@ export type FooterLink = { slug: string; title: string };
 export type FooterGroup = { group: string; links: FooterLink[] };
 
 export async function getPage(slug: string): Promise<ContentPage | null> {
-  const { data } = await createServerClient()
+  const supabase = createServerClient();
+  if (!supabase) return null;
+
+  const { data } = await supabase
     .from("pages")
     .select("slug, title, group_name, body")
     .eq("slug", slug)
@@ -24,7 +27,10 @@ export async function getPage(slug: string): Promise<ContentPage | null> {
 
 /** Footer columns, in the order the admin set. */
 export async function getFooterGroups(): Promise<FooterGroup[]> {
-  const { data } = await createServerClient()
+  const supabase = createServerClient();
+  if (!supabase) return [];
+
+  const { data } = await supabase
     .from("pages")
     .select("slug, title, group_name, sort_order")
     .eq("is_active", true)

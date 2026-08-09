@@ -3,30 +3,29 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { ChevronRight, OrdersIcon } from "@/components/icons";
+import { ChevronLeft, ChevronRight, OrdersIcon } from "@/components/icons";
 import { inr } from "@/lib/format";
+import { statusView } from "@/lib/orderStatus";
 import { useOrders, type Order } from "@/lib/storefront";
 
-type Filter = "all" | "active" | "confirmed" | "cancelled";
+/** Enough to fill a desktop screen without a wall of cards on mobile. */
+const PER_PAGE = 8;
+
+type Filter = "all" | "active" | "shipped" | "delivered" | "cancelled";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "active", label: "Active" },
-  { key: "confirmed", label: "Confirmed" },
+  { key: "shipped", label: "Shipped" },
+  { key: "delivered", label: "Delivered" },
   { key: "cancelled", label: "Cancelled" },
 ];
 
 function matchesFilter(order: Order, filter: Filter) {
   if (filter === "all") return true;
-  if (filter === "active") return order.status === "pending";
-  if (filter === "confirmed") return order.status === "confirmed";
-  return order.status === "cancelled";
-}
-
-function statusClass(status: Order["status"]) {
-  if (status === "confirmed") return "bg-save-50 text-save-600";
-  if (status === "cancelled") return "bg-red-50 text-red-700";
-  return "bg-amber-50 text-amber-800";
+  // "Active" is everything still being worked on, before it leaves the store.
+  if (filter === "active") return order.status === "pending" || order.status === "confirmed";
+  return order.status === filter;
 }
 
 function formatPlacedAt(value: string) {
@@ -42,6 +41,7 @@ function formatPlacedAt(value: string) {
 export function OrdersClient() {
   const { orders } = useOrders();
   const [filter, setFilter] = useState<Filter>("all");
+  const [requestedPage, setPage] = useState(1);
   const ready = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -51,6 +51,17 @@ export function OrdersClient() {
   const filtered = useMemo(
     () => orders.filter((order) => matchesFilter(order, filter)),
     [orders, filter]
+  );
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  // Clamp on read rather than correcting state in an effect: a live order
+  // update can shrink the list under the reader at any moment, and rendering
+  // the last valid page is the right answer without a second render pass.
+  const page = Math.min(requestedPage, pageCount);
+
+  const visible = useMemo(
+    () => filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE),
+    [filtered, page]
   );
 
   if (!ready) {
@@ -121,7 +132,10 @@ export function OrdersClient() {
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setFilter(item.key)}
+                  onClick={() => {
+                    setFilter(item.key);
+                    setPage(1);
+                  }}
                   className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-bold transition-colors ${
                     active
                       ? "border-brand-700 bg-brand-700 text-white"
@@ -137,7 +151,7 @@ export function OrdersClient() {
 
           {filtered.length ? (
             <div className="mt-4 grid items-start gap-3 md:grid-cols-2">
-              {filtered.map((order) => {
+              {visible.map((order) => {
                 const itemCount = order.lines.reduce((sum, line) => sum + line.qty, 0);
                 return (
                   <article
@@ -154,11 +168,11 @@ export function OrdersClient() {
                         </p>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${statusClass(
-                          order.status
-                        )}`}
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${
+                          statusView(order.status).chip
+                        }`}
                       >
-                        {order.status}
+                        {statusView(order.status).label}
                       </span>
                     </div>
 
@@ -228,6 +242,51 @@ export function OrdersClient() {
                 Show all orders
               </button>
             </div>
+          )}
+
+          {pageCount > 1 && (
+            <nav
+              aria-label="Orders pages"
+              className="mt-5 flex items-center justify-between gap-3"
+            >
+              <button
+                type="button"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="flex h-10 items-center gap-1 rounded-xl border border-ink-200 px-3.5 text-xs font-bold text-ink-700 transition-colors enabled:hover:border-brand-400 enabled:hover:text-brand-700 disabled:opacity-40"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Prev
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-current={n === page ? "page" : undefined}
+                    onClick={() => setPage(n)}
+                    className={`h-9 min-w-9 rounded-lg px-2 text-xs font-bold tabular-nums transition-colors ${
+                      n === page
+                        ? "bg-brand-700 text-white"
+                        : "border border-ink-200 text-ink-600 hover:border-brand-300 hover:text-brand-700"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                disabled={page === pageCount}
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                className="flex h-10 items-center gap-1 rounded-xl border border-ink-200 px-3.5 text-xs font-bold text-ink-700 transition-colors enabled:hover:border-brand-400 enabled:hover:text-brand-700 disabled:opacity-40"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </nav>
           )}
         </>
       )}

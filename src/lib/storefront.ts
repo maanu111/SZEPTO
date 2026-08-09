@@ -93,7 +93,7 @@ export function useShippingSettings(): ShippingSettings {
  * Orders
  * ------------------------------------------------------------------ */
 
-export type OrderStatus = "pending" | "confirmed" | "cancelled";
+export type OrderStatus = "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
 
 export type OrderCustomer = {
   name: string;
@@ -280,13 +280,49 @@ async function fetchOrdersByIds(ids: string[]): Promise<Order[]> {
   );
 }
 
-/** Orders placed from this browser, newest first. */
+/**
+ * Live subscription to `orders` rows.
+ *
+ * These hooks fetch client-side, so `router.refresh()` — which only re-renders
+ * Server Components — can never update them. They have to listen for their own
+ * changes, otherwise an admin flipping a status is invisible until a reload.
+ */
+let channelSeq = 0;
+
+function subscribeToOrders(ids: string[], onChange: () => void): () => void {
+  if (ids.length === 0) return () => {};
+
+  const supabase = createClient();
+  // The channel name must be unique per subscriber. supabase-js hands back an
+  // *existing* channel when the topic matches, and adding listeners to one that
+  // has already subscribed throws — which is exactly what happens when two
+  // components watch the same orders, as the list and the status dock do.
+  const channel = supabase.channel(`orders:${(channelSeq += 1)}`);
+
+  // Postgres filters take one value, so watch each order individually.
+  for (const id of ids) {
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "orders", filter: `id=eq.${id}` },
+      onChange
+    );
+  }
+
+  channel.subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/** Orders placed from this browser, newest first. Updates live. */
 export function useOrders(): { orders: Order[]; loading: boolean; refresh: () => void } {
   const ids = useMyOrderIds();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
   const key = ids.join(",");
+
+  const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -298,17 +334,23 @@ export function useOrders(): { orders: Order[]; loading: boolean; refresh: () =>
       setLoading(false);
     });
 
+    const unsubscribe = subscribeToOrders(ids, () => {
+      fetchOrdersByIds(ids).then((result) => {
+        if (!cancelled) setOrders(result);
+      });
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the stable form of `ids`
   }, [key, nonce]);
 
-  const refresh = useCallback(() => setNonce((n) => n + 1), []);
   return { orders, loading, refresh };
 }
 
-/** A single order, fetched by its unguessable id. */
+/** A single order, fetched by its unguessable id. Updates live. */
 export function useOrder(id: string): { order: Order | null; loading: boolean } {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -318,14 +360,19 @@ export function useOrder(id: string): { order: Order | null; loading: boolean } 
     mounted.current = true;
     setLoading(true);
 
-    fetchOrdersByIds([id]).then((result) => {
-      if (!mounted.current) return;
-      setOrder(result[0] ?? null);
-      setLoading(false);
-    });
+    const load = () =>
+      fetchOrdersByIds([id]).then((result) => {
+        if (!mounted.current) return;
+        setOrder(result[0] ?? null);
+        setLoading(false);
+      });
+
+    load();
+    const unsubscribe = subscribeToOrders([id], load);
 
     return () => {
       mounted.current = false;
+      unsubscribe();
     };
   }, [id]);
 

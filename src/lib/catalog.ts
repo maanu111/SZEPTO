@@ -79,6 +79,7 @@ function toProduct(
  */
 async function loadProducts(filter?: { categorySlug?: string; slugs?: string[] }) {
   const supabase = createServerClient();
+  if (!supabase) return { products: [], categories: [] };
 
   const { data: categoryRows } = await supabase
     .from("categories")
@@ -141,6 +142,7 @@ async function loadProducts(filter?: { categorySlug?: string; slugs?: string[] }
 
 export async function getCategories(): Promise<Category[]> {
   const supabase = createServerClient();
+  if (!supabase) return [];
 
   const [{ data: rows }, { data: productRows }] = await Promise.all([
     supabase
@@ -190,6 +192,7 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
 /** Home hero slides, with each slide's product photos already resolved. */
 export async function getBanners(): Promise<Banner[]> {
   const supabase = createServerClient();
+  if (!supabase) return [];
 
   const { data: rows } = await supabase
     .from("banners")

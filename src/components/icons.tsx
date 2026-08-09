@@ -161,6 +161,29 @@ export function OrdersIcon({ className = base, strokeWidth = 1.8 }: IconProps) {
   );
 }
 
+export function TruckIcon({ className = base, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M2.5 6.5A1.5 1.5 0 0 1 4 5h9.5v11H8.9M2.5 6.5V16h1.6M2.5 6.5v0"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M13.5 8.5h3.7a2 2 0 0 1 1.7 1l2.1 3.4a2 2 0 0 1 .3 1V16h-2.4"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="6.5" cy="17.5" r="1.9" stroke="currentColor" strokeWidth={strokeWidth} />
+      <circle cx="17.5" cy="17.5" r="1.9" stroke="currentColor" strokeWidth={strokeWidth} />
+    </svg>
+  );
+}
+
 export function CheckIcon({ className = base, strokeWidth = 2.6 }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
