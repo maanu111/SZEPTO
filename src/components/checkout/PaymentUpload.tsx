@@ -7,7 +7,12 @@ import { CheckIcon, CloseIcon } from "@/components/icons";
 
 type Props = {
   value: string | null;
-  onChange: (dataUrl: string | null, meta: { name: string; size: number } | null) => void;
+  /** The File is passed through so checkout can upload the original to storage. */
+  onChange: (
+    dataUrl: string | null,
+    meta: { name: string; size: number } | null,
+    file: File | null
+  ) => void;
   fileMeta: { name: string; size: number } | null;
 };
 
@@ -25,24 +30,24 @@ export function PaymentUpload({ value, onChange, fileMeta }: Props) {
     const invalid = validateImage(file);
     if (invalid) {
       setError(invalid);
-      onChange(null, null);
+      onChange(null, null, null);
       return;
     }
 
     setBusy(true);
     try {
       const { dataUrl } = await readImageDownscaled(file);
-      onChange(dataUrl, { name: file.name, size: file.size });
+      onChange(dataUrl, { name: file.name, size: file.size }, file);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read that image.");
-      onChange(null, null);
+      onChange(null, null, null);
     } finally {
       setBusy(false);
     }
   };
 
   const clear = () => {
-    onChange(null, null);
+    onChange(null, null, null);
     setError(null);
     if (inputRef.current) inputRef.current.value = "";
   };

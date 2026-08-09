@@ -2,14 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CheckIcon, ChevronLeft, OrdersIcon } from "@/components/icons";
 import { inr } from "@/lib/format";
-import { updateOrderStatus, useOrders, type Order } from "@/lib/storefront";
+import { cancelOrder, useOrder, type Order } from "@/lib/storefront";
 import { useIsMounted } from "@/lib/useIsMounted";
 
 function statusMeta(status: Order["status"]) {
-  if (status === "Confirmed") {
+  if (status === "confirmed") {
     return {
       chip: "bg-save-50 text-save-600",
       panel: "border-save-500/20 bg-save-50",
@@ -17,7 +18,7 @@ function statusMeta(status: Order["status"]) {
       message: "Your payment is confirmed and the store is preparing this order.",
     };
   }
-  if (status === "Cancelled") {
+  if (status === "cancelled") {
     return {
       chip: "bg-red-50 text-red-700",
       panel: "border-red-200 bg-red-50",
@@ -34,14 +35,14 @@ function statusMeta(status: Order["status"]) {
 }
 
 function OrderProgress({ status }: { status: Order["status"] }) {
-  const finalLabel = status === "Cancelled" ? "Cancelled" : "Payment verified";
-  const completed = status === "Payment under verification" ? 2 : 3;
+  const finalLabel = status === "cancelled" ? "Cancelled" : "Payment verified";
+  const completed = status === "pending" ? 2 : 3;
 
   return (
     <ol className="mt-4 grid grid-cols-3" aria-label="Order progress">
       {["Order placed", "Payment submitted", finalLabel].map((label, index) => {
         const done = index < completed;
-        const cancelled = status === "Cancelled" && index === 2;
+        const cancelled = status === "cancelled" && index === 2;
         return (
           <li key={label} className="relative flex min-w-0 flex-col items-center text-center">
             {index > 0 && (
@@ -78,12 +79,13 @@ function OrderProgress({ status }: { status: Order["status"] }) {
 }
 
 export function OrderClient({ orderId }: { orderId: string }) {
-  const orders = useOrders();
-  const order = orders.find((item) => item.id === orderId) ?? null;
+  const router = useRouter();
+  const { order, loading } = useOrder(orderId);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
-  // Orders live in localStorage, so nothing is known until after hydration.
-  const ready = useIsMounted();
+  // Order data is fetched in the browser, so nothing is known on the first paint.
+  const ready = useIsMounted() && !loading;
 
   if (!ready) {
     return (
@@ -217,7 +219,7 @@ export function OrderClient({ orderId }: { orderId: string }) {
       </section>
 
       {/* 4 — cancel, only while the order is still in progress */}
-      {order.status === "Payment under verification" && (
+      {order.status === "pending" && (
         <div className="mt-4">
           {confirmingCancel ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
@@ -228,9 +230,13 @@ export function OrderClient({ orderId }: { orderId: string }) {
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    updateOrderStatus(order.id, "Cancelled");
+                  disabled={cancelling}
+                  onClick={async () => {
+                    setCancelling(true);
+                    await cancelOrder(order.id);
+                    setCancelling(false);
                     setConfirmingCancel(false);
+                    router.refresh();
                   }}
                   className="h-10 flex-1 rounded-xl bg-red-600 text-xs font-bold text-white transition-colors hover:bg-red-700"
                 >

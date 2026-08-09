@@ -3,16 +3,22 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { categories } from "@/data/catalog";
+import type { Category } from "@/data/catalog";
 
 /**
  * Category rail beside the product grid.
- * Narrow icon rail on phones (the Zepto/Blinkit pattern), full labelled list from `lg`.
+ * Narrow icon rail on phones, full labelled list from `lg`.
  */
-export function CategorySidebar({ activeSlug }: { activeSlug: string }) {
+export function CategorySidebar({
+  categories,
+  activeSlug,
+}: {
+  categories: Category[];
+  activeSlug: string;
+}) {
   const activeRef = useRef<HTMLAnchorElement>(null);
 
-  // Keep the selected category in view when arriving directly on a deep link.
+  // Keep the selected category in view when arriving on a deep link.
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: "nearest" });
   }, [activeSlug]);
@@ -36,12 +42,9 @@ export function CategorySidebar({ activeSlug }: { activeSlug: string }) {
                   href={`/category/${c.slug}`}
                   aria-current={active ? "page" : undefined}
                   className={`relative flex flex-col items-center gap-1 px-1.5 py-2.5 text-center transition-colors lg:flex-row lg:gap-2.5 lg:px-3 lg:py-2 lg:text-left ${
-                    active
-                      ? "bg-brand-50 text-brand-800"
-                      : "text-ink-700 hover:bg-ink-50"
+                    active ? "bg-brand-50 text-brand-800" : "text-ink-700 hover:bg-ink-50"
                   }`}
                 >
-                  {/* active marker */}
                   <span
                     className={`absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r bg-brand-600 transition-opacity ${
                       active ? "opacity-100" : "opacity-0"

@@ -20,7 +20,7 @@ const FREE_DELIVERY_OVER = 499;
  */
 export function BottomBar() {
   const { lines, itemCount, subtotal, hydrated, openCart, cartOpen } = useCart();
-  const orders = useOrders();
+  const { orders } = useOrders();
   const pathname = usePathname();
 
   // Checkout and order pages carry their own summary / status UI.

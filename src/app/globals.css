@@ -132,3 +132,11 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Permanently hide Next.js Dev Tools button / portal */
+nextjs-portal,
+[data-nextjs-toast],
+[data-next-badge],
+.nextjs-toast-errors-parent {
+  display: none !important;
+}

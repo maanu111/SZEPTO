@@ -18,14 +18,14 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 function matchesFilter(order: Order, filter: Filter) {
   if (filter === "all") return true;
-  if (filter === "active") return order.status === "Payment under verification";
-  if (filter === "confirmed") return order.status === "Confirmed";
-  return order.status === "Cancelled";
+  if (filter === "active") return order.status === "pending";
+  if (filter === "confirmed") return order.status === "confirmed";
+  return order.status === "cancelled";
 }
 
 function statusClass(status: Order["status"]) {
-  if (status === "Confirmed") return "bg-save-50 text-save-600";
-  if (status === "Cancelled") return "bg-red-50 text-red-700";
+  if (status === "confirmed") return "bg-save-50 text-save-600";
+  if (status === "cancelled") return "bg-red-50 text-red-700";
   return "bg-amber-50 text-amber-800";
 }
 
@@ -40,7 +40,7 @@ function formatPlacedAt(value: string) {
 }
 
 export function OrdersClient() {
-  const orders = useOrders();
+  const { orders } = useOrders();
   const [filter, setFilter] = useState<Filter>("all");
   const ready = useSyncExternalStore(
     () => () => {},

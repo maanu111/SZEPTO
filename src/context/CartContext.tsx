@@ -15,7 +15,7 @@ import type { Product, Variant } from "@/data/catalog";
 export type CartLine = {
   /** productId + variantId — the same product in two pack sizes are two lines. */
   key: string;
-  productId: number;
+  productId: string;
   slug: string;
   name: string;
   image: string;
@@ -109,9 +109,9 @@ type CartContextValue = {
   removeItem: (key: string) => void;
   clearCart: () => void;
   /** Total quantity of a product across every pack size. */
-  qtyOfProduct: (productId: number) => number;
-  qtyOfVariant: (productId: number, variantId: string) => number;
-  lineKey: (productId: number, variantId: string) => string;
+  qtyOfProduct: (productId: string) => number;
+  qtyOfVariant: (productId: string, variantId: string) => number;
+  lineKey: (productId: string, variantId: string) => string;
   lastAdded: LastAdded | null;
   dismissLastAdded: () => void;
   cartOpen: boolean;
@@ -122,7 +122,7 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-const makeKey = (productId: number, variantId: string) => `${productId}::${variantId}`;
+const makeKey = (productId: string, variantId: string) => `${productId}::${variantId}`;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, { lines: [], hydrated: false });
@@ -207,13 +207,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [state.lines]);
 
   const qtyOfProduct = useCallback(
-    (productId: number) =>
+    (productId: string) =>
       state.lines.reduce((sum, l) => (l.productId === productId ? sum + l.qty : sum), 0),
     [state.lines]
   );
 
   const qtyOfVariant = useCallback(
-    (productId: number, variantId: string) =>
+    (productId: string, variantId: string) =>
       state.lines.find((l) => l.key === makeKey(productId, variantId))?.qty ?? 0,
     [state.lines]
   );

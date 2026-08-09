@@ -9,14 +9,14 @@ import { useOrders, type Order } from "@/lib/storefront";
 import { CheckIcon, ChevronDown, OrdersIcon } from "./icons";
 
 function presentation(status: Order["status"]) {
-  if (status === "Confirmed") {
+  if (status === "confirmed") {
     return {
       title: "Payment confirmed",
       subtitle: "Your order is being prepared",
       progress: 100,
     };
   }
-  if (status === "Cancelled") {
+  if (status === "cancelled") {
     return {
       title: "Order cancelled",
       subtitle: "View the order for more information",
@@ -32,7 +32,7 @@ function presentation(status: Order["status"]) {
 
 export function LatestOrderStatusDock() {
   const pathname = usePathname();
-  const orders = useOrders();
+  const { orders } = useOrders();
   const { itemCount, hydrated, cartOpen } = useCart();
   const [expanded, setExpanded] = useState(false);
 
@@ -85,7 +85,7 @@ export function LatestOrderStatusDock() {
             className="flex min-h-[5.25rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.06]"
           >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fbf0c4] text-[#c20e5c]">
-              {order.status === "Confirmed" ? (
+              {order.status === "confirmed" ? (
                 <CheckIcon className="h-5 w-5" strokeWidth={3} />
               ) : (
                 <OrdersIcon className="h-5 w-5" strokeWidth={2} />
@@ -119,7 +119,7 @@ export function LatestOrderStatusDock() {
               <div className="border-t border-[#fbf0c4]/25 px-4 pb-4 pt-3">
                 <div className="flex items-center justify-between text-[10px] font-bold text-[#fbf0c4]/75">
                   <span>Order placed</span>
-                  <span>{order.status === "Confirmed" ? "Confirmed" : order.status === "Cancelled" ? "Cancelled" : "Verification"}</span>
+                  <span>{order.status === "confirmed" ? "Confirmed" : order.status === "cancelled" ? "Cancelled" : "Verification"}</span>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#fbf0c4]/25">
                   <div

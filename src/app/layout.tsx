@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
+import { RealtimeRefresh } from "@/components/RealtimeRefresh";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,7 +28,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -34,7 +36,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-white">
-        <AppShell>{children}</AppShell>
+        <AppShell footer={<SiteFooter />}>
+          {/* Catalog and settings edits in the admin reach shoppers without a reload */}
+          <RealtimeRefresh
+            tables={["products", "product_variants", "categories", "banners", "store_settings", "pages"]}
+          />
+          {children}
+        </AppShell>
       </body>
     </html>
   );

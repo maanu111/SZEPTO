@@ -9,13 +9,7 @@ import { CartIcon, CheckIcon, ChevronDown, ChevronRight } from "@/components/ico
 import { useCart } from "@/context/CartContext";
 import { inr } from "@/lib/format";
 import { quoteCart } from "@/lib/shipping";
-import {
-  generateOrderId,
-  saveOrder,
-  usePaymentSettings,
-  useShippingSettings,
-  type Order,
-} from "@/lib/storefront";
+import { placeOrder, useStoreSettings } from "@/lib/storefront";
 import { BillBreakdown } from "@/components/BillBreakdown";
 
 
@@ -57,9 +51,11 @@ export function CheckoutClient() {
 
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [touched, setTouched] = useState<Partial<Record<keyof Form, boolean>>>({});
-  const settings = usePaymentSettings();
+  const storeSettings = useStoreSettings();
+  const settings = storeSettings.payment;
   const [proof, setProof] = useState<string | null>(null);
   const [proofMeta, setProofMeta] = useState<{ name: string; size: number } | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [paymentRef, setPaymentRef] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [confirmed, setConfirmed] = useState(false);
@@ -71,7 +67,7 @@ export function CheckoutClient() {
 
   const toggleStep = (step: number) => setOpenStep((s) => (s === step ? null : step));
 
-  const shippingSettings = useShippingSettings();
+  const shippingSettings = storeSettings.shipping;
   const quote = quoteCart(lines, subtotal, shippingSettings);
   const total = quote.total;
 
@@ -116,7 +112,7 @@ export function CheckoutClient() {
     }
   };
 
-  const placeOrder = () => {
+  const submitOrder = async () => {
     setSubmitAttempted(true);
     setSaveError(null);
     if (!canPlace) {
@@ -127,9 +123,7 @@ export function CheckoutClient() {
     }
 
     setPlacing(true);
-    const order: Order = {
-      id: generateOrderId(),
-      placedAt: new Date().toISOString(),
+    const result = await placeOrder({
       customer: {
         name: form.name.trim(),
         phone: form.phone.trim(),
@@ -140,19 +134,13 @@ export function CheckoutClient() {
       },
       lines,
       itemTotal: subtotal,
-      weightKg: quote.weightKg,
-      ratePerKg: quote.ratePerKg,
-      shippingCost: quote.shippingCost,
-      serviceCharge: quote.serviceCharge,
-      total,
       savings,
-      paymentProof: proof,
+      shipping: shippingSettings,
+      paymentProofFile: proofFile,
       paymentRef: paymentRef.trim(),
       paymentNote: paymentNote.trim(),
-      status: "Payment under verification",
-    };
+    });
 
-    const result = saveOrder(order);
     if (!result.ok) {
       setSaveError(result.error);
       setPlacing(false);
@@ -160,7 +148,7 @@ export function CheckoutClient() {
     }
 
     clearCart();
-    router.push(`/order/${order.id}`);
+    router.push(`/order/${result.id}`);
   };
 
   /* ---------------- empty / loading states ---------------- */
@@ -234,7 +222,7 @@ export function CheckoutClient() {
                 onBlur={blur("name")}
                 error={showError("name")}
                 autoComplete="name"
-                placeholder="Priya Sharma"
+                placeholder="Full name"
               />
               <Field
                 label="Mobile number"
@@ -245,7 +233,7 @@ export function CheckoutClient() {
                 autoComplete="tel"
                 inputMode="numeric"
                 maxLength={10}
-                placeholder="9876543210"
+                placeholder="10-digit mobile number"
               />
               <Field
                 className="sm:col-span-2"
@@ -255,7 +243,7 @@ export function CheckoutClient() {
                 onBlur={blur("address")}
                 error={showError("address")}
                 autoComplete="street-address"
-                placeholder="Flat 402, Rohan Nilay, Baner Road"
+                placeholder="Flat, building and street"
               />
               <Field
                 className="sm:col-span-2"
@@ -264,7 +252,7 @@ export function CheckoutClient() {
                 value={form.landmark}
                 onChange={set("landmark")}
                 onBlur={blur("landmark")}
-                placeholder="Opposite D-Mart"
+                placeholder="Nearby landmark"
               />
               <Field
                 label="City"
@@ -283,7 +271,7 @@ export function CheckoutClient() {
                 autoComplete="postal-code"
                 inputMode="numeric"
                 maxLength={6}
-                placeholder="411007"
+                placeholder="6-digit pincode"
               />
             </div>
             <ContinueButton
@@ -394,9 +382,10 @@ export function CheckoutClient() {
             <PaymentUpload
               value={proof}
               fileMeta={proofMeta}
-              onChange={(dataUrl, meta) => {
+              onChange={(dataUrl, meta, file) => {
                 setProof(dataUrl);
                 setProofMeta(meta);
+                setProofFile(file);
               }}
             />
             {submitAttempted && errors.proof && (
@@ -413,7 +402,7 @@ export function CheckoutClient() {
                 <input
                   value={paymentRef}
                   onChange={(e) => setPaymentRef(e.target.value)}
-                  placeholder="e.g. 412345678901"
+                  placeholder="Transaction ID"
                   className="h-10 w-full rounded-lg border border-ink-200 px-3 text-[13px] text-ink-900 outline-none transition-colors placeholder:text-ink-400 focus:border-brand-500"
                 />
               </label>
@@ -424,7 +413,7 @@ export function CheckoutClient() {
                 <input
                   value={paymentNote}
                   onChange={(e) => setPaymentNote(e.target.value)}
-                  placeholder="Paid from GPay ending 4432"
+                  placeholder="Anything we should know"
                   className="h-10 w-full rounded-lg border border-ink-200 px-3 text-[13px] text-ink-900 outline-none transition-colors placeholder:text-ink-400 focus:border-brand-500"
                 />
               </label>
@@ -506,7 +495,7 @@ export function CheckoutClient() {
           {/* Desktop CTA */}
           <button
             type="button"
-            onClick={placeOrder}
+            onClick={submitOrder}
             disabled={placing}
             className="mt-3 hidden h-12 w-full items-center justify-center rounded-xl bg-accent-500 text-sm font-bold text-white transition-colors hover:bg-accent-600 disabled:cursor-not-allowed disabled:bg-ink-200 lg:flex"
           >
@@ -524,7 +513,7 @@ export function CheckoutClient() {
       <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-ink-100 bg-white px-3 pb-3 pt-3 sm:bottom-0 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
         <button
           type="button"
-          onClick={placeOrder}
+          onClick={submitOrder}
           disabled={placing}
           className="flex h-12 w-full items-center justify-between rounded-xl bg-accent-500 px-4 text-white transition-colors hover:bg-accent-600 disabled:cursor-not-allowed disabled:bg-ink-200"
         >

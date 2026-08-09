@@ -6,11 +6,9 @@ import { ProductBuyBox } from "@/components/ProductBuyBox";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ProductRail } from "@/components/ProductRail";
 import { ChevronRight, StarIcon } from "@/components/icons";
-import { categoryBySlug, productBySlug, products, productsByCategory } from "@/data/catalog";
+import { getCategoryBySlug, getProductBySlug, getProductsByCategory } from "@/lib/catalog";
 
-export function generateStaticParams() {
-  return products.map((p) => ({ slug: p.slug }));
-}
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,
@@ -18,24 +16,25 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = productBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) return { title: "Product not found" };
   return {
     title: product.name,
     description: product.description,
-    openGraph: { images: [product.image] },
+    openGraph: product.image ? { images: [product.image] } : undefined,
   };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = productBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const category = categoryBySlug(product.category);
-  const similar = productsByCategory(product.category)
-    .filter((p) => p.id !== product.id)
-    .slice(0, 12);
+  const [category, categoryProducts] = await Promise.all([
+    getCategoryBySlug(product.category),
+    getProductsByCategory(product.category),
+  ]);
+  const similar = categoryProducts.filter((p) => p.id !== product.id).slice(0, 12);
 
   const highlights = [
     ["Brand", product.brand],

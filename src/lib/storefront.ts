@@ -1,144 +1,99 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+/*
+ * This module fetches from Supabase inside effects. Every setState below happens in a
+ * promise callback guarded by a cancellation flag, not synchronously in the effect body,
+ * so the cascading-render concern the rule guards against does not apply. There is no
+ * external store to subscribe to instead — the data lives behind the network.
+ */
+/* eslint-disable react-hooks/set-state-in-effect */
+
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CartLine } from "@/context/CartContext";
+import { compressImage } from "@/lib/compressImage";
+import { createClient } from "@/lib/supabase";
 import { cartWeightKg, DEFAULT_SHIPPING_SETTINGS, type ShippingSettings } from "./shipping";
 
 /* ------------------------------------------------------------------ *
- * Payment settings consumed by the customer checkout.
+ * Store settings — payment QR + export charges, owned by the admin app.
  * ------------------------------------------------------------------ */
 
 export type PaymentSettings = {
-  /** Data URL of the QR image supplied by the store configuration. */
   qrDataUrl: string | null;
-  qrFileName: string | null;
   upiId: string;
   payeeName: string;
-  /** Free-text instructions shown next to the QR at checkout. */
   note: string;
-  updatedAt: string | null;
 };
 
 export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
   qrDataUrl: null,
-  qrFileName: null,
   upiId: "",
-  payeeName: "SZepto Retail",
-  note: "Scan the QR with any UPI app, pay the exact amount shown, then upload the payment screenshot below.",
-  updatedAt: null,
+  payeeName: "",
+  note: "",
 };
 
-const SETTINGS_KEY = "szepto.payment-settings.v1";
-const SHIPPING_KEY = "szepto.shipping-settings.v1";
-const ORDERS_KEY = "szepto.orders.v1";
-const MAX_STORED_ORDERS = 25;
+export type StoreSettings = {
+  payment: PaymentSettings;
+  shipping: ShippingSettings;
+  loaded: boolean;
+};
 
-/** Fired after a write so other mounted components re-read storage. */
-const CHANGE_EVENT = "szepto:storage-change";
+const DEFAULT_STORE_SETTINGS: StoreSettings = {
+  payment: DEFAULT_PAYMENT_SETTINGS,
+  shipping: DEFAULT_SHIPPING_SETTINGS,
+  loaded: false,
+};
 
-/**
- * Snapshot caches.
- *
- * `useSyncExternalStore` compares snapshots by reference, so reading storage on every call
- * would loop forever. Parsed values are cached and only invalidated when something writes.
- */
-let settingsCache: PaymentSettings | null = null;
-let shippingCache: ShippingSettings | null = null;
-let ordersCache: Order[] | null = null;
+/** Reads the single settings row. Falls back to defaults if it can't be reached. */
+export function useStoreSettings(): StoreSettings {
+  const [settings, setSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
 
-function clearCaches() {
-  settingsCache = null;
-  shippingCache = null;
-  ordersCache = null;
-}
+  useEffect(() => {
+    let cancelled = false;
 
-function emitChange() {
-  clearCaches();
-  window.dispatchEvent(new Event(CHANGE_EVENT));
-}
+    createClient()
+      .from("store_settings")
+      .select("qr_url, upi_id, payee_name, payment_note, rate_per_kg, service_charge")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setSettings({
+          loaded: true,
+          payment: {
+            qrDataUrl: data?.qr_url ?? null,
+            upiId: data?.upi_id ?? "",
+            payeeName: data?.payee_name ?? "",
+            note: data?.payment_note ?? "",
+          },
+          shipping: {
+            ratePerKg: data?.rate_per_kg ?? DEFAULT_SHIPPING_SETTINGS.ratePerKg,
+            serviceCharge: data?.service_charge ?? DEFAULT_SHIPPING_SETTINGS.serviceCharge,
+          },
+        });
+      });
 
-export function subscribeToStorefront(listener: () => void): () => void {
-  // A write in another tab fires `storage`; our own writes fire CHANGE_EVENT.
-  const onExternal = () => {
-    clearCaches();
-    listener();
-  };
-  window.addEventListener(CHANGE_EVENT, listener);
-  window.addEventListener("storage", onExternal);
-  return () => {
-    window.removeEventListener(CHANGE_EVENT, listener);
-    window.removeEventListener("storage", onExternal);
-  };
-}
-
-const EMPTY_ORDERS: Order[] = [];
-
-/** Live payment settings. Renders defaults on the server, real values after hydration. */
-export function usePaymentSettings(): PaymentSettings {
-  return useSyncExternalStore(
-    subscribeToStorefront,
-    () => (settingsCache ??= loadPaymentSettings()),
-    () => DEFAULT_PAYMENT_SETTINGS
-  );
-}
-
-export function loadShippingSettings(): ShippingSettings {
-  try {
-    const raw = window.localStorage.getItem(SHIPPING_KEY);
-    if (!raw) return DEFAULT_SHIPPING_SETTINGS;
-    const parsed = JSON.parse(raw) as Partial<ShippingSettings>;
-    return {
-      ratePerKg: Number(parsed.ratePerKg) || DEFAULT_SHIPPING_SETTINGS.ratePerKg,
-      serviceCharge: Number(parsed.serviceCharge ?? DEFAULT_SHIPPING_SETTINGS.serviceCharge),
+    return () => {
+      cancelled = true;
     };
-  } catch {
-    return DEFAULT_SHIPPING_SETTINGS;
-  }
+  }, []);
+
+  return settings;
 }
 
-export function saveShippingSettings(
-  settings: ShippingSettings
-): { ok: true } | { ok: false; error: string } {
-  try {
-    window.localStorage.setItem(SHIPPING_KEY, JSON.stringify(settings));
-    emitChange();
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "Could not save shipping settings." };
-  }
+/** Backwards-compatible alias used by checkout. */
+export function usePaymentSettings(): PaymentSettings {
+  return useStoreSettings().payment;
 }
 
-/** Live export rate and service charge. */
 export function useShippingSettings(): ShippingSettings {
-  return useSyncExternalStore(
-    subscribeToStorefront,
-    () => (shippingCache ??= loadShippingSettings()),
-    () => DEFAULT_SHIPPING_SETTINGS
-  );
-}
-
-/** Live order list, newest first. */
-export function useOrders(): Order[] {
-  return useSyncExternalStore(
-    subscribeToStorefront,
-    () => (ordersCache ??= loadOrders()),
-    () => EMPTY_ORDERS
-  );
-}
-
-export function loadPaymentSettings(): PaymentSettings {
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return DEFAULT_PAYMENT_SETTINGS;
-    return { ...DEFAULT_PAYMENT_SETTINGS, ...(JSON.parse(raw) as Partial<PaymentSettings>) };
-  } catch {
-    return DEFAULT_PAYMENT_SETTINGS;
-  }
+  return useStoreSettings().shipping;
 }
 
 /* ------------------------------------------------------------------ *
  * Orders
  * ------------------------------------------------------------------ */
+
+export type OrderStatus = "pending" | "confirmed" | "cancelled";
 
 export type OrderCustomer = {
   name: string;
@@ -149,276 +104,355 @@ export type OrderCustomer = {
   city: string;
 };
 
+export type OrderLine = {
+  key: string;
+  slug: string;
+  name: string;
+  image: string;
+  variantLabel: string;
+  unit: string;
+  price: number;
+  mrp: number;
+  qty: number;
+};
+
 export type Order = {
   id: string;
+  code: string;
   placedAt: string;
   customer: OrderCustomer;
-  lines: CartLine[];
+  lines: OrderLine[];
   itemTotal: number;
-  /** Billable consignment weight and the export rate applied to it. */
   weightKg: number;
   ratePerKg: number;
   shippingCost: number;
-  /** Transport + packaging + handling, combined into one line. */
   serviceCharge: number;
   total: number;
   savings: number;
-  /** Screenshot of the UPI payment, as a downscaled data URL. */
   paymentProof: string | null;
   paymentRef: string;
-  /** Customer's own note confirming they paid and uploaded the right screenshot. */
   paymentNote: string;
-  status: "Payment under verification" | "Confirmed" | "Cancelled";
+  status: OrderStatus;
 };
 
-const DEMO_ORDER_COUNT = 10;
+/**
+ * The storefront has no login, so this browser keeps the list of order ids it
+ * created. Order contents always come from the database.
+ */
+const MY_ORDERS_KEY = "szepto.my-orders.v1";
+const CHANGE_EVENT = "szepto:my-orders";
 
-const DEMO_PRODUCTS: Array<Omit<CartLine, "key" | "qty">> = [
-  {
-    productId: 16,
-    slug: "apple",
-    name: "Apple",
-    image: "https://cdn.dummyjson.com/product-images/groceries/apple/thumbnail.webp",
-    variantId: "apple-v2",
-    variantLabel: "500 g",
-    unit: "500 g",
-    price: 84,
-    mrp: 99,
-  },
-  {
-    productId: 23,
-    slug: "eggs",
-    name: "Eggs",
-    image: "https://cdn.dummyjson.com/product-images/groceries/eggs/thumbnail.webp",
-    variantId: "eggs-v1",
-    variantLabel: "6 pieces",
-    unit: "6 pieces",
-    price: 69,
-    mrp: 79,
-  },
-  {
-    productId: 29,
-    slug: "milk",
-    name: "Milk",
-    image: "https://cdn.dummyjson.com/product-images/groceries/milk/thumbnail.webp",
-    variantId: "milk-v2",
-    variantLabel: "1 L",
-    unit: "1 L",
-    price: 67,
-    mrp: 72,
-  },
-  {
-    productId: 35,
-    slug: "rice",
-    name: "Rice",
-    image: "https://cdn.dummyjson.com/product-images/groceries/rice/thumbnail.webp",
-    variantId: "rice-v2",
-    variantLabel: "5 kg",
-    unit: "5 kg",
-    price: 429,
-    mrp: 499,
-  },
-  {
-    productId: 26,
-    slug: "juice",
-    name: "Juice",
-    image: "https://cdn.dummyjson.com/product-images/groceries/juice/thumbnail.webp",
-    variantId: "juice-v2",
-    variantLabel: "1 L",
-    unit: "1 L",
-    price: 99,
-    mrp: 119,
-  },
-  {
-    productId: 31,
-    slug: "nescafe-coffee",
-    name: "Nescafe Coffee",
-    image: "https://cdn.dummyjson.com/product-images/groceries/nescafe-coffee/thumbnail.webp",
-    variantId: "nescafe-coffee-v1",
-    variantLabel: "100 g",
-    unit: "100 g",
-    price: 289,
-    mrp: 325,
-  },
-  {
-    productId: 32,
-    slug: "potatoes",
-    name: "Potatoes",
-    image: "https://cdn.dummyjson.com/product-images/groceries/potatoes/thumbnail.webp",
-    variantId: "potatoes-v2",
-    variantLabel: "1 kg",
-    unit: "1 kg",
-    price: 48,
-    mrp: 60,
-  },
-  {
-    productId: 20,
-    slug: "cooking-oil",
-    name: "Cooking Oil",
-    image: "https://cdn.dummyjson.com/product-images/groceries/cooking-oil/thumbnail.webp",
-    variantId: "cooking-oil-v2",
-    variantLabel: "1 L",
-    unit: "1 L",
-    price: 149,
-    mrp: 175,
-  },
-  {
-    productId: 36,
-    slug: "soft-drinks",
-    name: "Soft Drinks",
-    image: "https://cdn.dummyjson.com/product-images/groceries/soft-drinks/thumbnail.webp",
-    variantId: "soft-drinks-v2",
-    variantLabel: "1.25 L",
-    unit: "1.25 L",
-    price: 78,
-    mrp: 95,
-  },
-];
-
-const DEMO_ORDER_IDS = [
-  "SZ-Q7M2KA",
-  "SZ-R9D4XP",
-  "SZ-H3W8LN",
-  "SZ-K6T2FV",
-  "SZ-P4N7CJ",
-  "SZ-B8X5MR",
-  "SZ-V2G9QD",
-  "SZ-M5L3YK",
-  "SZ-C7R4WH",
-  "SZ-N9F2PB",
-];
-
-const DEMO_ORDER_AGES_HOURS = [0.5, 5, 26, 51, 96, 168, 264, 384, 552, 744];
-
-const DEMO_ORDER_STATUSES: Order["status"][] = [
-  "Payment under verification",
-  "Confirmed",
-  "Confirmed",
-  "Cancelled",
-  "Confirmed",
-  "Payment under verification",
-  "Confirmed",
-  "Cancelled",
-  "Confirmed",
-  "Confirmed",
-];
-
-function makeDemoOrders(): Order[] {
-  const now = Date.now();
-  const addresses: OrderCustomer[] = [
-    {
-      name: "Aarav Sharma",
-      phone: "9876543210",
-      address: "42, Lake View Apartments, Indiranagar",
-      landmark: "Near Metro Station",
-      pincode: "560038",
-      city: "Bengaluru",
-    },
-    {
-      name: "Aarav Sharma",
-      phone: "9876543210",
-      address: "18, Orion Business Park, MG Road",
-      landmark: "Opposite Central Mall",
-      pincode: "560001",
-      city: "Bengaluru",
-    },
-  ];
-
-  return DEMO_ORDER_IDS.map((id, orderIndex) => {
-    const lineCount = (orderIndex % 3) + 1;
-    const lines = Array.from({ length: lineCount }, (_, lineIndex) => {
-      const product = DEMO_PRODUCTS[(orderIndex * 2 + lineIndex) % DEMO_PRODUCTS.length];
-      const qty = ((orderIndex + lineIndex) % 3) + 1;
-      return {
-        ...product,
-        key: `${product.productId}:${product.variantId}`,
-        qty,
-      };
-    });
-    const itemTotal = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
-    const mrpTotal = lines.reduce((sum, line) => sum + line.mrp * line.qty, 0);
-    const { ratePerKg, serviceCharge } = DEFAULT_SHIPPING_SETTINGS;
-    const weightKg = cartWeightKg(lines);
-    const shippingCost = Math.round(weightKg * ratePerKg);
-
-    return {
-      id,
-      placedAt: new Date(now - DEMO_ORDER_AGES_HOURS[orderIndex] * 60 * 60 * 1000).toISOString(),
-      customer: addresses[orderIndex % addresses.length],
-      lines,
-      itemTotal,
-      weightKg,
-      ratePerKg,
-      shippingCost,
-      serviceCharge,
-      total: itemTotal + shippingCost + serviceCharge,
-      savings: mrpTotal - itemTotal,
-      paymentProof: null,
-      paymentRef: `UTR2026${String(810042 + orderIndex * 137)}`,
-      paymentNote:
-        DEMO_ORDER_STATUSES[orderIndex] === "Cancelled"
-          ? "Payment was not completed."
-          : "Paid using UPI and submitted for verification.",
-      status: DEMO_ORDER_STATUSES[orderIndex],
-    };
-  });
-}
-
-export function loadOrders(): Order[] {
+function readMyOrderIds(): string[] {
   try {
-    const raw = window.localStorage.getItem(ORDERS_KEY);
+    const raw = window.localStorage.getItem(MY_ORDERS_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    const storedOrders = Array.isArray(parsed) ? (parsed as Order[]) : [];
-    if (storedOrders.length >= DEMO_ORDER_COUNT) return storedOrders;
-
-    const storedIds = new Set(storedOrders.map((order) => order.id));
-    const demoOrders = makeDemoOrders().filter((order) => !storedIds.has(order.id));
-    const orders = [...storedOrders, ...demoOrders]
-      .sort((a, b) => Date.parse(b.placedAt) - Date.parse(a.placedAt))
-      .slice(0, DEMO_ORDER_COUNT);
-
-    window.localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-    return orders;
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
   } catch {
-    return makeDemoOrders();
+    return [];
   }
 }
 
-export function saveOrder(order: Order): { ok: true } | { ok: false; error: string } {
-  const orders = [order, ...loadOrders()].slice(0, MAX_STORED_ORDERS);
+export function rememberOrderId(id: string) {
   try {
-    window.localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-    emitChange();
-    return { ok: true };
+    const ids = [id, ...readMyOrderIds().filter((x) => x !== id)].slice(0, 50);
+    window.localStorage.setItem(MY_ORDERS_KEY, JSON.stringify(ids));
+    window.dispatchEvent(new Event(CHANGE_EVENT));
   } catch {
-    // Screenshots are the bulk of the payload — retry keeping proof only on the newest order.
-    try {
-      const trimmed = orders.map((o, i) => (i === 0 ? o : { ...o, paymentProof: null }));
-      window.localStorage.setItem(ORDERS_KEY, JSON.stringify(trimmed));
-      emitChange();
-      return { ok: true };
-    } catch {
-      return { ok: false, error: "Could not save the order — browser storage is full." };
-    }
+    // Private mode — the order still exists, it just won't be listed here.
   }
 }
 
-export function updateOrderStatus(id: string, status: Order["status"]): void {
-  const orders = loadOrders().map((o) => (o.id === id ? { ...o, status } : o));
-  try {
-    window.localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-    emitChange();
-  } catch {
-    // Non-fatal: the status just stays as it was.
-  }
+function subscribeMyOrders(listener: () => void) {
+  window.addEventListener(CHANGE_EVENT, listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    window.removeEventListener(CHANGE_EVENT, listener);
+    window.removeEventListener("storage", listener);
+  };
 }
 
-/** SZ-8H3K2M — short, readable, good enough to quote over the phone. */
-export function generateOrderId(): string {
+let idsCache: string[] | null = null;
+const EMPTY_IDS: string[] = [];
+
+export function useMyOrderIds(): string[] {
+  return useSyncExternalStore(
+    (listener) =>
+      subscribeMyOrders(() => {
+        idsCache = null;
+        listener();
+      }),
+    () => (idsCache ??= readMyOrderIds()),
+    () => EMPTY_IDS
+  );
+}
+
+type OrderRowShape = {
+  id: string;
+  code: string;
+  created_at: string;
+  customer_name: string;
+  customer_phone: string;
+  address: string;
+  landmark: string;
+  city: string;
+  pincode: string;
+  item_total: number;
+  weight_kg: number;
+  rate_per_kg: number;
+  shipping_cost: number;
+  service_charge: number;
+  total: number;
+  savings: number;
+  payment_proof_url: string | null;
+  payment_ref: string;
+  payment_note: string;
+  status: OrderStatus;
+};
+
+type ItemRowShape = {
+  order_id: string;
+  product_slug: string;
+  name: string;
+  image_url: string | null;
+  variant_label: string;
+  unit: string;
+  price: number;
+  mrp: number;
+  qty: number;
+};
+
+function toOrder(row: OrderRowShape, items: ItemRowShape[]): Order {
+  return {
+    id: row.id,
+    code: row.code,
+    placedAt: row.created_at,
+    customer: {
+      name: row.customer_name,
+      phone: row.customer_phone,
+      address: row.address,
+      landmark: row.landmark,
+      city: row.city,
+      pincode: row.pincode,
+    },
+    lines: items.map((i, n) => ({
+      key: `${row.id}-${n}`,
+      slug: i.product_slug,
+      name: i.name,
+      image: i.image_url ?? "",
+      variantLabel: i.variant_label,
+      unit: i.unit,
+      price: i.price,
+      mrp: i.mrp,
+      qty: i.qty,
+    })),
+    itemTotal: row.item_total,
+    weightKg: Number(row.weight_kg) || 0,
+    ratePerKg: row.rate_per_kg,
+    shippingCost: row.shipping_cost,
+    serviceCharge: row.service_charge,
+    total: row.total,
+    savings: row.savings,
+    paymentProof: row.payment_proof_url,
+    paymentRef: row.payment_ref,
+    paymentNote: row.payment_note,
+    status: row.status,
+  };
+}
+
+async function fetchOrdersByIds(ids: string[]): Promise<Order[]> {
+  if (ids.length === 0) return [];
+  const supabase = createClient();
+
+  const [{ data: orderRows }, { data: itemRows }] = await Promise.all([
+    supabase.from("orders").select("*").in("id", ids).order("created_at", { ascending: false }),
+    supabase.from("order_items").select("*").in("order_id", ids),
+  ]);
+
+  const itemsByOrder = new Map<string, ItemRowShape[]>();
+  for (const i of (itemRows ?? []) as ItemRowShape[]) {
+    const list = itemsByOrder.get(i.order_id) ?? [];
+    list.push(i);
+    itemsByOrder.set(i.order_id, list);
+  }
+
+  return ((orderRows ?? []) as OrderRowShape[]).map((o) =>
+    toOrder(o, itemsByOrder.get(o.id) ?? [])
+  );
+}
+
+/** Orders placed from this browser, newest first. */
+export function useOrders(): { orders: Order[]; loading: boolean; refresh: () => void } {
+  const ids = useMyOrderIds();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [nonce, setNonce] = useState(0);
+  const key = ids.join(",");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
+    fetchOrdersByIds(ids).then((result) => {
+      if (cancelled) return;
+      setOrders(result);
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the stable form of `ids`
+  }, [key, nonce]);
+
+  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+  return { orders, loading, refresh };
+}
+
+/** A single order, fetched by its unguessable id. */
+export function useOrder(id: string): { order: Order | null; loading: boolean } {
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    setLoading(true);
+
+    fetchOrdersByIds([id]).then((result) => {
+      if (!mounted.current) return;
+      setOrder(result[0] ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      mounted.current = false;
+    };
+  }, [id]);
+
+  return { order, loading };
+}
+
+/* ------------------------------------------------------------------ *
+ * Placing an order
+ * ------------------------------------------------------------------ */
+
+export type PlaceOrderInput = {
+  customer: OrderCustomer;
+  lines: CartLine[];
+  itemTotal: number;
+  savings: number;
+  shipping: ShippingSettings;
+  paymentProofFile: File | null;
+  paymentRef: string;
+  paymentNote: string;
+};
+
+export type PlaceOrderResult =
+  | { ok: true; id: string; code: string }
+  | { ok: false; error: string };
+
+/** SZ-8H3K2M — short enough to read out over the phone. */
+export function generateOrderCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let suffix = "";
   for (let i = 0; i < 6; i++) {
     suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return `SZ-${suffix}`;
+}
+
+export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResult> {
+  const supabase = createClient();
+
+  // 1. Upload the payment screenshot first — no order without proof of payment.
+  //    Screenshots off a phone are several MB; compressing keeps storage in check
+  //    while staying legible enough to verify a UPI reference against.
+  let proofUrl: string | null = null;
+  if (input.paymentProofFile) {
+    const compressed = await compressImage(input.paymentProofFile, {
+      maxEdge: 1800,   // must stay large enough to read UPI refs and bank names
+      quality: 0.91,   // high quality — do not mush text in screenshots
+    });
+    const ext = compressed.file.type.split("/")[1] || "webp";
+    const path = `${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("payment-proofs")
+      .upload(path, compressed.file, {
+        contentType: compressed.file.type,
+        cacheControl: "31536000",
+      });
+
+    if (uploadError) return { ok: false, error: `Couldn't upload your screenshot: ${uploadError.message}` };
+
+    proofUrl = supabase.storage.from("payment-proofs").getPublicUrl(path).data.publicUrl;
+  }
+
+  const weightKg = cartWeightKg(input.lines);
+  const shippingCost = Math.round(weightKg * input.shipping.ratePerKg);
+  const serviceCharge = input.lines.length ? input.shipping.serviceCharge : 0;
+  const total = input.itemTotal + shippingCost + serviceCharge;
+
+  // 2. Create the order.
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .insert({
+      code: generateOrderCode(),
+      customer_name: input.customer.name,
+      customer_phone: input.customer.phone,
+      address: input.customer.address,
+      landmark: input.customer.landmark,
+      city: input.customer.city,
+      pincode: input.customer.pincode,
+      item_total: input.itemTotal,
+      weight_kg: weightKg,
+      rate_per_kg: input.shipping.ratePerKg,
+      shipping_cost: shippingCost,
+      service_charge: serviceCharge,
+      total,
+      savings: input.savings,
+      payment_proof_url: proofUrl,
+      payment_ref: input.paymentRef,
+      payment_note: input.paymentNote,
+      status: "pending",
+    })
+    .select("id, code")
+    .single();
+
+  if (orderError || !order) {
+    return { ok: false, error: orderError?.message ?? "Could not place your order." };
+  }
+
+  // 3. Line items are copied, not referenced, so history survives catalog edits.
+  const { error: itemsError } = await supabase.from("order_items").insert(
+    input.lines.map((l) => ({
+      order_id: order.id,
+      product_slug: l.slug,
+      name: l.name,
+      image_url: l.image,
+      variant_label: l.variantLabel,
+      unit: l.unit,
+      price: l.price,
+      mrp: l.mrp,
+      qty: l.qty,
+    }))
+  );
+
+  if (itemsError) {
+    // Roll back so a half-written order never reaches the dashboard.
+    await supabase.from("orders").delete().eq("id", order.id);
+    return { ok: false, error: itemsError.message };
+  }
+
+  rememberOrderId(order.id);
+  return { ok: true, id: order.id, code: order.code };
+}
+
+export async function cancelOrder(id: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await createClient()
+    .from("orders")
+    .update({ status: "cancelled" })
+    .eq("id", id);
+
+  return error ? { ok: false, error: error.message } : { ok: true };
 }

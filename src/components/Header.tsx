@@ -10,7 +10,7 @@ import { SearchBox, type SearchBoxHandle } from "./SearchBox";
 
 export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }) {
   const { itemCount, subtotal, hydrated, openCart } = useCart();
-  const orders = useOrders();
+  const { orders } = useOrders();
 
   return (
     <>
@@ -75,7 +75,7 @@ export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }
 
           {/* ---- Row 2: mobile / tablet search ---- */}
           <div className="pb-2.5 lg:hidden">
-            <SearchBox ref={searchRef} placeholder="Search for milk, atta, coke and more" />
+            <SearchBox ref={searchRef} placeholder="Search products" />
           </div>
         </div>
       </header>
