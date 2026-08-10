@@ -131,8 +131,8 @@ export function OrderClient({ orderId }: { orderId: string }) {
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="break-all text-xl font-extrabold tracking-tight text-ink-900 sm:text-2xl">
-            {order.id}
+          <h1 className="text-xl font-extrabold tracking-tight text-ink-900 sm:text-2xl">
+            {order.code}
           </h1>
           <p className="mt-0.5 text-xs text-ink-500">Placed {placed}</p>
         </div>

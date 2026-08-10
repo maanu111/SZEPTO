@@ -75,7 +75,7 @@ export function LatestOrderStatusDock() {
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className="truncate text-[15px] font-extrabold leading-tight">
-                  {view.title}
+                  {view.dockTitle}
                 </span>
                 <span className="h-2 w-2 shrink-0 rounded-full bg-[#fbf0c4]" />
               </span>
@@ -83,9 +83,13 @@ export function LatestOrderStatusDock() {
                 {view.dockSubtitle}
               </span>
             </span>
-            <span className="shrink-0 text-right">
-              <span className="block text-[11px] font-bold text-[#fbf0c4]/70">{order.id}</span>
-              <span className="mt-0.5 block text-sm font-extrabold tabular-nums">
+            {/* Capped and allowed to shrink: the status must never be squeezed
+                out by a long order number. */}
+            <span className="min-w-0 max-w-[38%] shrink text-right">
+              <span className="block truncate text-[11px] font-bold text-[#fbf0c4]/70">
+                {order.code}
+              </span>
+              <span className="mt-0.5 block whitespace-nowrap text-sm font-extrabold tabular-nums">
                 {inr(order.total)}
               </span>
             </span>

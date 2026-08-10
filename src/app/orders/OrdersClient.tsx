@@ -160,8 +160,8 @@ export function OrdersClient() {
                   >
                     <div className="flex items-start justify-between gap-3 border-b border-ink-100 px-4 py-3.5">
                       <div className="min-w-0">
-                        <p className="text-sm font-extrabold tracking-tight text-ink-900">
-                          {order.id}
+                        <p className="truncate text-sm font-extrabold tracking-tight text-ink-900">
+                          {order.code}
                         </p>
                         <p className="mt-0.5 text-[11px] text-ink-500">
                           {formatPlacedAt(order.placedAt)}

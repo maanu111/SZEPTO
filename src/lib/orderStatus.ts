@@ -26,7 +26,9 @@ export type StatusView = {
   title: string;
   /** One line of plain reassurance under the headline. */
   message: string;
-  /** Subtitle used by the compact floating dock. */
+  /** Short headline for the compact floating dock, which has ~17 characters. */
+  dockTitle: string;
+  /** Short subtitle for the dock, which has ~24 characters. */
   dockSubtitle: string;
   chip: string;
   panel: string;
@@ -39,7 +41,8 @@ const VIEWS: Record<OrderStatus, StatusView> = {
     label: "Placed",
     title: "Payment verification in progress",
     message: "The store has received your screenshot and will verify the payment shortly.",
-    dockSubtitle: "We received your payment proof",
+    dockTitle: "Verifying payment",
+    dockSubtitle: "Payment proof received",
     chip: "bg-amber-50 text-amber-800",
     panel: "border-amber-200 bg-amber-50",
     progress: 25,
@@ -48,6 +51,7 @@ const VIEWS: Record<OrderStatus, StatusView> = {
     label: "Verified",
     title: "Payment verified",
     message: "Your payment is confirmed and the store is packing this order.",
+    dockTitle: "Payment verified",
     dockSubtitle: "Your order is being packed",
     chip: "bg-save-50 text-save-600",
     panel: "border-save-500/20 bg-save-50",
@@ -57,7 +61,8 @@ const VIEWS: Record<OrderStatus, StatusView> = {
     label: "Shipped",
     title: "On the way",
     message: "This order has left the store and is on its way to your address.",
-    dockSubtitle: "Out for delivery to your address",
+    dockTitle: "On the way",
+    dockSubtitle: "Out for delivery",
     chip: "bg-brand-50 text-brand-700",
     panel: "border-brand-200 bg-brand-50",
     progress: 75,
@@ -66,6 +71,7 @@ const VIEWS: Record<OrderStatus, StatusView> = {
     label: "Delivered",
     title: "Delivered",
     message: "This order was delivered. Thanks for shopping with us.",
+    dockTitle: "Delivered",
     dockSubtitle: "Delivered to your address",
     chip: "bg-save-50 text-save-600",
     panel: "border-save-500/20 bg-save-50",
@@ -75,7 +81,8 @@ const VIEWS: Record<OrderStatus, StatusView> = {
     label: "Cancelled",
     title: "Order cancelled",
     message: "This order was cancelled. Contact the store if you need help with the payment.",
-    dockSubtitle: "View the order for more information",
+    dockTitle: "Order cancelled",
+    dockSubtitle: "Tap for details",
     chip: "bg-red-50 text-red-700",
     panel: "border-red-200 bg-red-50",
     progress: 100,
