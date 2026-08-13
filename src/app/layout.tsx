@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
-import { RealtimeRefresh } from "@/components/RealtimeRefresh";
+import { CatalogRefresh } from "@/components/CatalogRefresh";
+import { InstallPrompt } from "@/components/InstallPrompt";
+import { ServiceWorker } from "@/components/ServiceWorker";
 import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
@@ -18,6 +20,9 @@ export const metadata: Metadata = {
   },
   description:
     "Order groceries, fresh fruits and vegetables, snacks and household essentials online.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "SZepto" },
+  icons: { apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
@@ -37,18 +42,10 @@ export default async function RootLayout({
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-white">
         <AppShell footer={<SiteFooter />}>
-          {/* Catalog and settings edits in the admin reach shoppers without a reload */}
-          <RealtimeRefresh
-            tables={[
-              "products",
-              "product_variants",
-              "categories",
-              "banners",
-              "store_settings",
-              "pages",
-              "orders",
-            ]}
-          />
+          {/* One tiny subscription covers the whole catalog — see CatalogRefresh */}
+          <CatalogRefresh />
+          <ServiceWorker />
+          <InstallPrompt />
           {children}
         </AppShell>
       </body>

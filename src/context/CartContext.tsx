@@ -25,6 +25,11 @@ export type CartLine = {
   price: number;
   mrp: number;
   qty: number;
+  /** Copied at add time so the bill does not need a second catalog read. */
+  weightKg: number;
+  lengthCm: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
 };
 
 /** What the "added to cart" banner needs to render. */
@@ -174,6 +179,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         unit: variant.unit,
         price: variant.price,
         mrp: variant.mrp,
+        weightKg: variant.weightKg,
+        lengthCm: variant.lengthCm,
+        widthCm: variant.widthCm,
+        heightCm: variant.heightCm,
       },
     });
     nonce.current += 1;

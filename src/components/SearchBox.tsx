@@ -60,6 +60,9 @@ async function searchProducts(term: string): Promise<Product[]> {
       mrp: Math.max(v.mrp, v.price),
       discountPct: v.mrp > v.price ? Math.floor(((v.mrp - v.price) / v.mrp) * 100) : 0,
       weightKg: Number(v.weight_kg) || 0,
+      lengthCm: null,
+      widthCm: null,
+      heightCm: null,
       inStock: v.in_stock,
     }));
 

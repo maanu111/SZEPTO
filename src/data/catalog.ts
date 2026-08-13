@@ -14,6 +14,10 @@ export type Variant = {
   discountPct: number;
   /** Billable weight, drives the export shipping charge. */
   weightKg: number;
+  /** Shipping carton size in cm; null bills on weight alone. */
+  lengthCm: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
   inStock: boolean;
 };
 

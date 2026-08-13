@@ -10,6 +10,7 @@ import { Header } from "./Header";
 import { LatestOrderStatusDock } from "./LatestOrderStatusDock";
 import type { SearchBoxHandle } from "./SearchBox";
 import { BottomBar } from "./BottomBar";
+import { SupportButton } from "./SupportButton";
 
 /**
  * Client shell: providers plus every globally-mounted surface (cart drawer, pack modal,
@@ -40,6 +41,7 @@ export function AppShell({
         <CartDrawer />
         <AddedToCartBanner />
         <LatestOrderStatusDock />
+        <SupportButton />
         <BottomBar />
         <BottomNav />
       </VariantModalProvider>

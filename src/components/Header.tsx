@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { inr } from "@/lib/format";
+import { useCustomer } from "@/lib/customer";
 import { useOrders } from "@/lib/storefront";
-import { BoltIcon, CartIcon, OrdersIcon } from "./icons";
+import { BoltIcon, CartIcon, OrdersIcon, UserIcon } from "./icons";
 import { LocationPicker } from "./LocationPicker";
 import { SearchBox, type SearchBoxHandle } from "./SearchBox";
 
 export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }) {
   const { itemCount, subtotal, hydrated, openCart } = useCart();
   const { orders } = useOrders();
+  const { customer } = useCustomer();
 
   return (
     <>
@@ -25,6 +27,28 @@ export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }
               </span>
               <span className="hidden text-xl font-extrabold tracking-tight text-brand-800 sm:inline lg:text-[1.4rem]">
                 SZepto
+              </span>
+            </Link>
+
+            {/* Account, top-left beside the logo. Silent until there is one —
+                there is nothing to sign into before the first order. */}
+            <Link
+              href="/profile"
+              aria-label={customer ? `Profile, ${customer.name || "account"}` : "My profile"}
+              className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-ink-200 pl-1 pr-2.5 transition-colors hover:border-brand-300 hover:bg-brand-50 lg:h-11 lg:pl-1.5 lg:pr-3"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-[11px] font-extrabold text-brand-700 lg:h-8 lg:w-8 lg:text-xs">
+                {(customer?.name || "").trim().charAt(0).toUpperCase() || (
+                  <UserIcon className="h-4 w-4" />
+                )}
+              </span>
+              <span className="hidden min-w-0 flex-col leading-tight sm:flex">
+                <span className="truncate text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                  {customer ? "Account" : "Profile"}
+                </span>
+                <span className="max-w-[7rem] truncate text-[12px] font-bold text-ink-800">
+                  {customer?.name?.trim() || "Guest"}
+                </span>
               </span>
             </Link>
 

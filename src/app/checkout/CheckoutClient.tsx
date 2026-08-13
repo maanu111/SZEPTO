@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PaymentUpload } from "@/components/checkout/PaymentUpload";
-import { CartIcon, CheckIcon, ChevronDown, ChevronRight } from "@/components/icons";
+import { CartIcon, CheckIcon, ChevronDown, ChevronRight, LocationIcon } from "@/components/icons";
 import { useCart } from "@/context/CartContext";
 import { inr } from "@/lib/format";
 import { quoteCart } from "@/lib/shipping";
+import { useCustomer } from "@/lib/customer";
 import { placeOrder, useStoreSettings } from "@/lib/storefront";
+import { detectAddress } from "@/lib/useCurrentLocation";
 import { BillBreakdown } from "@/components/BillBreakdown";
 
 
@@ -49,8 +51,44 @@ export function CheckoutClient() {
   const router = useRouter();
   const { lines, subtotal, savings, itemCount, hydrated, clearCart } = useCart();
 
+  const { customer } = useCustomer();
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [touched, setTouched] = useState<Partial<Record<keyof Form, boolean>>>({});
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  // A returning customer should not retype anything. Keyed on the account id so
+  // the prefill happens once per account rather than fighting the user's edits.
+  const [prefilledFor, setPrefilledFor] = useState<string | null>(null);
+  if (customer && prefilledFor !== customer.id) {
+    setPrefilledFor(customer.id);
+    setForm({
+      name: customer.name,
+      phone: customer.phone,
+      address: customer.address,
+      landmark: customer.landmark,
+      city: customer.city || "Pune",
+      pincode: customer.pincode,
+    });
+  }
+
+  const useMyLocation = async () => {
+    setLocating(true);
+    setLocationError(null);
+    const result = await detectAddress();
+    setLocating(false);
+    if (!result.ok) {
+      setLocationError(result.error);
+      return;
+    }
+    setCoords({ latitude: result.latitude, longitude: result.longitude });
+    setForm((f) => ({
+      ...f,
+      address: result.address || f.address,
+      city: result.city || f.city,
+      pincode: result.pincode || f.pincode,
+    }));
+  };
   const storeSettings = useStoreSettings();
   const settings = storeSettings.payment;
   const [proof, setProof] = useState<string | null>(null);
@@ -131,6 +169,9 @@ export function CheckoutClient() {
         landmark: form.landmark.trim(),
         city: form.city.trim(),
         pincode: form.pincode.trim(),
+        locationSource: coords ? "gps" : "manual",
+        latitude: coords?.latitude ?? null,
+        longitude: coords?.longitude ?? null,
       },
       lines,
       itemTotal: subtotal,
@@ -197,7 +238,14 @@ export function CheckoutClient() {
         <span className="font-semibold text-ink-900">Checkout</span>
       </nav>
 
-      <h1 className="mt-2 text-xl font-bold text-ink-900 sm:text-2xl">Checkout</h1>
+      <h1 className="mt-2 text-xl font-bold text-ink-900 sm:text-2xl">
+        Checkout
+        {storeSettings.deliveryEstimate && (
+          <span className="ml-1.5 text-sm font-semibold text-ink-500 sm:text-base">
+            ({storeSettings.deliveryEstimate})
+          </span>
+        )}
+      </h1>
       <p className="mt-0.5 text-xs text-ink-500">
         {itemCount} item{itemCount === 1 ? "" : "s"} in your order
       </p>
@@ -214,6 +262,23 @@ export function CheckoutClient() {
             complete={addressComplete}
             summary={addressSummary}
           >
+            {/* Offer the phone's own location before asking anyone to type an
+                address; typing stays available either way. */}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={useMyLocation}
+                disabled={locating}
+                className="flex h-9 items-center gap-1.5 rounded-xl border border-brand-200 bg-brand-50 px-3 text-xs font-bold text-brand-700 transition-colors hover:border-brand-400 disabled:opacity-50"
+              >
+                <LocationIcon className="h-3.5 w-3.5" />
+                {locating ? "Detecting…" : "Use my current location"}
+              </button>
+              {locationError && (
+                <span className="text-[11px] font-semibold text-red-600">{locationError}</span>
+              )}
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <Field
                 label="Full name"

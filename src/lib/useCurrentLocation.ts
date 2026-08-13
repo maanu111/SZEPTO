@@ -153,3 +153,73 @@ export function useCurrentLocation() {
 
   return { location, status, error, detect };
 }
+
+export type DetectedAddress = {
+  /** Street-level line suitable for the address field. */
+  address: string;
+  city: string;
+  pincode: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type DetectResult =
+  | ({ ok: true } & DetectedAddress)
+  | { ok: false; error: string };
+
+/**
+ * One-shot address detection.
+ *
+ * The hook above drives the header's location chip and keeps state; forms need
+ * a plain promise that either resolves to fields they can drop straight into
+ * inputs, or explains why it couldn't.
+ */
+export async function detectAddress(): Promise<DetectResult> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    return { ok: false, error: "Location isn't supported in this browser." };
+  }
+
+  const position = await new Promise<GeolocationPosition | GeolocationPositionError>((resolve) =>
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve(p),
+      (e) => resolve(e),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    )
+  );
+
+  if (!("coords" in position)) {
+    return {
+      ok: false,
+      error:
+        position.code === position.PERMISSION_DENIED
+          ? "Location permission was blocked. Type your address instead."
+          : "Couldn't get your location. Type your address instead.",
+    };
+  }
+
+  const { latitude, longitude } = position.coords;
+
+  try {
+    const data = await reverseGeocode(latitude, longitude, new AbortController().signal);
+    const a = (data.address ?? {}) as Record<string, string>;
+    const { line } = formatAddress(data);
+    return {
+      ok: true,
+      address: line,
+      city: a.city ?? a.town ?? a.state_district ?? a.county ?? "",
+      pincode: a.postcode ?? "",
+      latitude,
+      longitude,
+    };
+  } catch {
+    // Coordinates are still useful even when the lookup fails.
+    return {
+      ok: true,
+      address: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+      city: "",
+      pincode: "",
+      latitude,
+      longitude,
+    };
+  }
+}

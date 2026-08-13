@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CartLine } from "@/context/CartContext";
 import { compressImage } from "@/lib/compressImage";
+import { saveCustomer } from "@/lib/customer";
 import { createClient } from "@/lib/supabase";
 import { cartWeightKg, DEFAULT_SHIPPING_SETTINGS, type ShippingSettings } from "./shipping";
 
@@ -32,15 +33,31 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
   note: "",
 };
 
+/** WhatsApp support, configured by the admin. */
+export type SupportSettings = {
+  whatsappNumber: string;
+  whatsappMessage: string;
+};
+
+export const DEFAULT_SUPPORT_SETTINGS: SupportSettings = {
+  whatsappNumber: "",
+  whatsappMessage: "",
+};
+
 export type StoreSettings = {
   payment: PaymentSettings;
   shipping: ShippingSettings;
+  support: SupportSettings;
+  /** Free text such as "7-10 days", shown next to the checkout heading. */
+  deliveryEstimate: string;
   loaded: boolean;
 };
 
 const DEFAULT_STORE_SETTINGS: StoreSettings = {
   payment: DEFAULT_PAYMENT_SETTINGS,
   shipping: DEFAULT_SHIPPING_SETTINGS,
+  support: DEFAULT_SUPPORT_SETTINGS,
+  deliveryEstimate: "",
   loaded: false,
 };
 
@@ -53,7 +70,9 @@ export function useStoreSettings(): StoreSettings {
 
     createClient()
       .from("store_settings")
-      .select("qr_url, upi_id, payee_name, payment_note, rate_per_kg, service_charge")
+      .select(
+        "qr_url, upi_id, payee_name, payment_note, rate_per_kg, service_charge, volumetric_divisor, whatsapp_number, whatsapp_message, delivery_estimate"
+      )
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
@@ -68,7 +87,14 @@ export function useStoreSettings(): StoreSettings {
           shipping: {
             ratePerKg: data?.rate_per_kg ?? DEFAULT_SHIPPING_SETTINGS.ratePerKg,
             serviceCharge: data?.service_charge ?? DEFAULT_SHIPPING_SETTINGS.serviceCharge,
+            volumetricDivisor:
+              data?.volumetric_divisor ?? DEFAULT_SHIPPING_SETTINGS.volumetricDivisor,
           },
+          support: {
+            whatsappNumber: data?.whatsapp_number ?? "",
+            whatsappMessage: data?.whatsapp_message ?? "",
+          },
+          deliveryEstimate: data?.delivery_estimate ?? "",
         });
       });
 
@@ -89,6 +115,10 @@ export function useShippingSettings(): ShippingSettings {
   return useStoreSettings().shipping;
 }
 
+export function useSupportSettings(): SupportSettings {
+  return useStoreSettings().support;
+}
+
 /* ------------------------------------------------------------------ *
  * Orders
  * ------------------------------------------------------------------ */
@@ -102,6 +132,12 @@ export type OrderCustomer = {
   landmark: string;
   pincode: string;
   city: string;
+  /** Optional WhatsApp number, when it differs from the phone. */
+  whatsapp?: string;
+  /** How the address was obtained, recorded on the account. */
+  locationSource?: "gps" | "manual";
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type OrderLine = {
@@ -159,6 +195,16 @@ export function rememberOrderId(id: string) {
     window.dispatchEvent(new Event(CHANGE_EVENT));
   } catch {
     // Private mode — the order still exists, it just won't be listed here.
+  }
+}
+
+/** Clears this browser's order list — used when signing out of an account. */
+export function forgetMyOrders() {
+  try {
+    window.localStorage.removeItem(MY_ORDERS_KEY);
+    window.dispatchEvent(new Event(CHANGE_EVENT));
+  } catch {
+    /* nothing stored to clear */
   }
 }
 
@@ -435,15 +481,32 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     proofUrl = supabase.storage.from("payment-proofs").getPublicUrl(path).data.publicUrl;
   }
 
-  const weightKg = cartWeightKg(input.lines);
+  const weightKg = cartWeightKg(input.lines, input.shipping.volumetricDivisor);
   const shippingCost = Math.round(weightKg * input.shipping.ratePerKg);
   const serviceCharge = input.lines.length ? input.shipping.serviceCharge : 0;
   const total = input.itemTotal + shippingCost + serviceCharge;
 
-  // 2. Create the order.
+  // 2. Filling in checkout is how an account gets made. Creating it before the
+  //    order means the order can point at it, so "my orders" survives a cleared
+  //    localStorage order list as long as the account token is intact.
+  const customer = await saveCustomer({
+    name: input.customer.name,
+    phone: input.customer.phone,
+    whatsapp: input.customer.whatsapp ?? "",
+    address: input.customer.address,
+    landmark: input.customer.landmark,
+    city: input.customer.city,
+    pincode: input.customer.pincode,
+    locationSource: input.customer.locationSource,
+    latitude: input.customer.latitude,
+    longitude: input.customer.longitude,
+  });
+
+  // 3. Create the order.
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
+      customer_id: customer?.id ?? null,
       code: generateOrderCode(),
       customer_name: input.customer.name,
       customer_phone: input.customer.phone,

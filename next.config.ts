@@ -10,6 +10,19 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "ktjusregeorxootlmgca.supabase.co", pathname: "/storage/v1/object/public/**" },
     ],
     formats: ["image/webp"],
+    /*
+     * How long an optimised image is served before Next re-fetches the original.
+     *
+     * The default is 60 seconds, which means every product photo is pulled from
+     * Supabase Storage roughly once a minute per size per edge region — the
+     * single largest source of egress on a catalog site. Uploads already carry a
+     * one-year cache header, so a matching TTL here means each image leaves
+     * Supabase once and is then served from the CDN.
+     */
+    minimumCacheTTL: 60 * 60 * 24 * 31,
+    // Narrower set than the default: fewer variants means fewer origin pulls.
+    deviceSizes: [360, 480, 640, 828, 1080, 1440, 1920],
+    imageSizes: [48, 64, 96, 128, 256],
   },
 };
 

@@ -19,6 +19,9 @@ function toVariant(row: VariantRow): Variant {
     mrp,
     discountPct: discountPct(price, mrp),
     weightKg: Number(row.weight_kg) || 0,
+    lengthCm: row.length_cm === null ? null : Number(row.length_cm),
+    widthCm: row.width_cm === null ? null : Number(row.width_cm),
+    heightCm: row.height_cm === null ? null : Number(row.height_cm),
     inStock: row.in_stock,
   };
 }
@@ -38,6 +41,9 @@ function toProduct(
     mrp: 0,
     discountPct: 0,
     weightKg: 0.5,
+    lengthCm: null,
+    widthCm: null,
+    heightCm: null,
     inStock: false,
   };
 
