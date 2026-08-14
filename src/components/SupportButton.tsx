@@ -18,7 +18,15 @@ export function SupportButton() {
   const { itemCount, hydrated, cartOpen } = useCart();
   const pathname = usePathname();
 
-  if (!whatsappNumber.trim() || cartOpen) return null;
+  /*
+   * Checkout is the one page this must stay off.
+   *
+   * It has a pinned bar carrying the total and Place order, and a floating
+   * button beside it either covers the primary action or crowds it. Support is
+   * one tap away from every other page, and a customer who is mid-payment
+   * needs the button they came for, not this one.
+   */
+  if (!whatsappNumber.trim() || cartOpen || pathname?.startsWith("/checkout")) return null;
 
   // wa.me wants digits only — no +, spaces or dashes.
   const digits = whatsappNumber.replace(/\D/g, "");
@@ -28,8 +36,6 @@ export function SupportButton() {
     whatsappMessage.trim() ? `?text=${encodeURIComponent(whatsappMessage.trim())}` : ""
   }`;
 
-  // Checkout has its own pinned action bar; a floating button would sit on it.
-  const onCheckout = pathname?.startsWith("/checkout");
   const hasCartBar = hydrated && itemCount > 0;
 
   /*
@@ -40,11 +46,9 @@ export function SupportButton() {
    * button clear even when the dock is expanded — which is one tap away, and
    * roughly doubles its height.
    */
-  const base = onCheckout
-    ? "calc(5.5rem + env(safe-area-inset-bottom))"
-    : hasCartBar
-      ? "calc(8.5rem + env(safe-area-inset-bottom))"
-      : "calc(4.5rem + env(safe-area-inset-bottom))";
+  const base = hasCartBar
+    ? "calc(8.5rem + env(safe-area-inset-bottom))"
+    : "calc(4.5rem + env(safe-area-inset-bottom))";
 
   return (
     <a
