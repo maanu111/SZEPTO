@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { CloseIcon } from "./icons";
 
@@ -158,8 +159,14 @@ export function InstallPrompt() {
     <>
       <div className="fixed inset-x-0 bottom-0 z-[60] px-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] sm:left-auto sm:right-4 sm:w-80 sm:px-0 sm:pb-4">
         <div className="flex items-center gap-3 rounded-2xl border border-ink-100 bg-white p-3 shadow-[0_10px_40px_rgba(0,0,0,0.15)]">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-accent-500 text-sm font-extrabold text-white">
-            SZ
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-ink-100">
+            <Image
+              src="/icons/icon-192.png"
+              alt=""
+              width={192}
+              height={192}
+              className="h-full w-full object-contain"
+            />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[13px] font-extrabold text-ink-900">Install Kiranaclick</span>
