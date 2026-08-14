@@ -18,7 +18,7 @@ export async function generateMetadata({
   if (!category) return { title: "Category not found" };
   return {
     title: category.name,
-    description: `Buy ${category.name.toLowerCase()} online at SZepto.`,
+    description: `Buy ${category.name.toLowerCase()} online at Kiranaclick.`,
   };
 }
 

@@ -7,7 +7,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "All categories",
-  description: "Browse every category on SZepto.",
+  description: "Browse every category on Kiranaclick.",
 };
 
 export default async function CategoriesPage() {

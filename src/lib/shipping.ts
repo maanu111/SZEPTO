@@ -144,9 +144,22 @@ export function isVolumetric(
 
 const DEFAULT_DIVISOR = 5000;
 
+/**
+ * One weight band: everything above `minKg` and up to `maxKg` pays `price`.
+ *
+ * Half-open on purpose. A closed range like 1–10 then 11–20 leaves 10.4 kg
+ * matching nothing, so bands are (min, max] and butt up against each other.
+ * A null `maxKg` is the open-ended top band.
+ */
+export type ShippingRate = {
+  minKg: number;
+  maxKg: number | null;
+  price: number;
+};
+
 export type ShippingSettings = {
-  /** Fixed export rate charged per kilogram. */
-  ratePerKg: number;
+  /** Weight bands, lightest first. Shipping is priced from these alone. */
+  rates: ShippingRate[];
   /** Single combined charge: transport, packaging and handling. */
   serviceCharge: number;
   /** Carrier divisor for volumetric weight. */
@@ -154,23 +167,37 @@ export type ShippingSettings = {
 };
 
 export const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
-  ratePerKg: 300,
+  rates: [],
   serviceCharge: 250,
   volumetricDivisor: DEFAULT_DIVISOR,
 };
 
+/** The band a consignment falls into, or null if none covers it. */
+export function rateForWeight(kg: number, rates: ShippingRate[]): ShippingRate | null {
+  const ordered = [...rates].sort((a, b) => a.minKg - b.minKg);
+  for (const r of ordered) {
+    const aboveFloor = kg > r.minKg || (r.minKg === 0 && kg > 0);
+    const belowCeiling = r.maxKg === null || kg <= r.maxKg;
+    if (aboveFloor && belowCeiling) return r;
+  }
+  return null;
+}
+
 export type Quote = {
   itemTotal: number;
   weightKg: number;
-  ratePerKg: number;
   shippingCost: number;
   serviceCharge: number;
   total: number;
   /** True when at least one line is billed on volume rather than mass. */
   hasVolumetric: boolean;
+  /** The band that was applied — checkout shows it to the customer. */
+  rate: ShippingRate | null;
+  /** True when the weight exceeded every band and took the heaviest one. */
+  overweight: boolean;
 };
 
-/** The full bill for a cart: goods + weight-based shipping + one service charge. */
+/** The full bill for a cart: goods + banded shipping + one service charge. */
 export function quoteCart(
   lines: CartLine[],
   itemTotal: number,
@@ -178,18 +205,46 @@ export function quoteCart(
 ): Quote {
   const divisor = settings.volumetricDivisor || DEFAULT_DIVISOR;
   const weightKg = cartWeightKg(lines, divisor);
-  const shippingCost = Math.round(weightKg * settings.ratePerKg);
+
+  let rate = lines.length ? rateForWeight(weightKg, settings.rates) : null;
+  let overweight = false;
+
+  /*
+   * Heavier than every band.
+   *
+   * Charging nothing would be worse than charging too much, so the heaviest
+   * band applies. The admin is told to leave the top band open-ended, which
+   * makes this unreachable.
+   */
+  if (lines.length > 0 && !rate && settings.rates.length > 0) {
+    rate = [...settings.rates].sort((a, b) => a.minKg - b.minKg).at(-1) ?? null;
+    overweight = true;
+  }
+
+  const shippingCost = rate?.price ?? 0;
   const serviceCharge = lines.length ? settings.serviceCharge : 0;
 
   return {
     itemTotal,
     weightKg,
-    ratePerKg: settings.ratePerKg,
     shippingCost,
     serviceCharge,
     total: itemTotal + shippingCost + serviceCharge,
     hasVolumetric: lines.some((l) => isVolumetric(l, divisor)),
+    rate,
+    overweight,
   };
+}
+
+/** "Up to 10 kg" / "10–20 kg" / "Over 30 kg" — how a band reads to a customer. */
+export function formatRateBand(rate: ShippingRate): string {
+  if (rate.maxKg === null) return `Over ${trim(rate.minKg)} kg`;
+  if (rate.minKg <= 0) return `Up to ${trim(rate.maxKg)} kg`;
+  return `${trim(rate.minKg)}–${trim(rate.maxKg)} kg`;
+}
+
+function trim(n: number): string {
+  return String(Number(n.toFixed(2)));
 }
 
 /** "3.5 kg" / "850 g" — reads naturally at both ends of the scale. */

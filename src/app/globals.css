@@ -2,25 +2,25 @@
 
 @theme {
   /* Brand — deep purple → magenta, the Zepto-family palette */
-  --color-brand-50: #faf3fd;
-  --color-brand-100: #f3e3fa;
-  --color-brand-200: #e8c8f5;
-  --color-brand-300: #d59ceb;
-  --color-brand-400: #bd6bdd;
-  --color-brand-500: #a13fc9;
-  --color-brand-600: #8425ab;
-  --color-brand-700: #6d1b8c;
-  --color-brand-800: #4c0f6b;
-  --color-brand-900: #340a4b;
+  /* Brand green, from the Kiranaclick mark */
+  --color-brand-50: #e8f5ec;
+  --color-brand-100: #c9e9d3;
+  --color-brand-200: #9bd7ae;
+  --color-brand-300: #63bd80;
+  --color-brand-400: #2f9f54;
+  --color-brand-500: #0f8a33;
+  --color-brand-600: #087828;
+  --color-brand-700: #066220;
+  --color-brand-800: #044c19;
+  --color-brand-900: #033611;
 
-  /* Accent — the ADD button / price-drop pink */
-  --color-accent-50: #fff1f7;
-  --color-accent-100: #ffe0ee;
-  --color-accent-500: #e5147e;
-  --color-accent-600: #c9106c;
-  --color-accent-700: #a30d58;
+  /* Brand orange, from the Kiranaclick mark */
+  --color-accent-50: #fff2ea;
+  --color-accent-100: #ffddc7;
+  --color-accent-500: #f85808;
+  --color-accent-600: #dc4c04;
+  --color-accent-700: #b53d03;
 
-  /* Savings green */
   --color-save-50: #e9f7ec;
   --color-save-500: #0c831f;
   --color-save-600: #0a6b19;

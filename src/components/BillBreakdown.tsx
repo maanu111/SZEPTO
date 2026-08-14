@@ -1,5 +1,5 @@
 import { inr } from "@/lib/format";
-import { formatWeight, type Quote } from "@/lib/shipping";
+import { formatRateBand, formatWeight, type Quote } from "@/lib/shipping";
 
 /**
  * The order bill, with the weight-based shipping maths shown in full so the
@@ -28,14 +28,20 @@ export function BillBreakdown({
         <div className="flex items-start justify-between gap-3 text-ink-700">
           <dt className="min-w-0">
             Shipping
+            {/* Banded pricing: show the weight and the band it landed in, so
+                the charge is never a number the customer can't account for. */}
             <span className="mt-0.5 block text-[10px] leading-snug text-ink-400">
               <span className="rounded bg-accent-50 px-1 py-px font-bold text-accent-500">
                 {formatWeight(quote.weightKg)}
               </span>{" "}
-              ×{" "}
-              <span className="rounded bg-accent-50 px-1 py-px font-bold text-accent-500">
-                {inr(quote.ratePerKg)}/kg
-              </span>
+              {quote.rate && (
+                <>
+                  falls in{" "}
+                  <span className="rounded bg-accent-50 px-1 py-px font-bold text-accent-500">
+                    {formatRateBand(quote.rate)}
+                  </span>
+                </>
+              )}
             </span>
           </dt>
           <dd className="shrink-0 tabular-nums">{inr(quote.shippingCost)}</dd>

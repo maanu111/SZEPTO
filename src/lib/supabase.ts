@@ -14,7 +14,7 @@ function warnOnce() {
   if (warned) return;
   warned = true;
   console.error(
-    "[szepto] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set — " +
+    "[kiranaclick] NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set — " +
       "the storefront will render with no catalog. Set them in your hosting environment."
   );
 }

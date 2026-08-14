@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { inr } from "@/lib/format";
 import { statusView } from "@/lib/orderStatus";
@@ -14,14 +14,55 @@ export function LatestOrderStatusDock() {
   const { orders } = useOrders();
   const { itemCount, hydrated, cartOpen } = useCart();
   const [expanded, setExpanded] = useState(false);
+  const dockRef = useRef<HTMLElement>(null);
 
   const order = orders[0];
   const hidden =
     pathname?.startsWith("/checkout") ||
     pathname?.startsWith("/orders") ||
     pathname?.startsWith("/order/");
+  /*
+   * The dock tracks an order that is still going somewhere.
+   *
+   * Once it is delivered or cancelled there is nothing left to follow, so it
+   * retires rather than sitting on the shop forever. The order itself stays in
+   * My Orders.
+   */
+  const inProgress =
+    order?.status === "pending" || order?.status === "confirmed" || order?.status === "shipped";
+  const visible = Boolean(order) && inProgress && !hidden && !cartOpen;
 
-  if (!order || hidden || cartOpen) return null;
+  /*
+   * Publish the dock's height so anything else pinned to the bottom of the
+   * screen can sit clear of it.
+   *
+   * A hard-coded offset would be wrong the moment the dock is expanded, which
+   * is a tap away, so the real measured height is written to a CSS variable and
+   * kept current by a ResizeObserver.
+   */
+  useEffect(() => {
+    const el = dockRef.current;
+    const root = document.documentElement;
+    if (!el) {
+      root.style.setProperty("--order-dock-h", "0px");
+      return;
+    }
+
+    const publish = () => {
+      root.style.setProperty("--order-dock-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    };
+    publish();
+
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      root.style.setProperty("--order-dock-h", "0px");
+    };
+  }, [visible]);
+
+  if (!visible || !order) return null;
 
   const view = statusView(order.status);
   const hasCart = hydrated && itemCount > 0;
@@ -35,6 +76,7 @@ export function LatestOrderStatusDock() {
 
   return (
     <aside
+      ref={dockRef}
       aria-label="Latest order status"
       className={`pointer-events-none fixed inset-x-0 z-50 px-2.5 transition-[bottom] duration-300 sm:px-4 lg:inset-x-auto lg:right-6 lg:w-[25rem] lg:px-0 ${
         hasCart

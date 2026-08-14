@@ -13,7 +13,13 @@ import type { CartLine } from "@/context/CartContext";
 import { compressImage } from "@/lib/compressImage";
 import { saveCustomer } from "@/lib/customer";
 import { createClient } from "@/lib/supabase";
-import { cartWeightKg, DEFAULT_SHIPPING_SETTINGS, type ShippingSettings } from "./shipping";
+import {
+  cartWeightKg,
+  DEFAULT_SHIPPING_SETTINGS,
+  rateForWeight,
+  type ShippingRate,
+  type ShippingSettings,
+} from "./shipping";
 
 /* ------------------------------------------------------------------ *
  * Store settings — payment QR + export charges, owned by the admin app.
@@ -64,14 +70,33 @@ const DEFAULT_STORE_SETTINGS: StoreSettings = {
 /** Reads the single settings row. Falls back to defaults if it can't be reached. */
 export function useStoreSettings(): StoreSettings {
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+  const [rates, setRates] = useState<ShippingRate[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
-    createClient()
+    const supabase = createClient();
+
+    // Bands live in their own table, so both reads go out together.
+    supabase
+      .from("shipping_rates")
+      .select("min_kg, max_kg, price")
+      .order("sort_order")
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRates(
+          (data ?? []).map((r) => ({
+            minKg: Number(r.min_kg),
+            maxKg: r.max_kg === null ? null : Number(r.max_kg),
+            price: r.price,
+          }))
+        );
+      });
+
+    supabase
       .from("store_settings")
       .select(
-        "qr_url, upi_id, payee_name, payment_note, rate_per_kg, service_charge, volumetric_divisor, whatsapp_number, whatsapp_message, delivery_estimate"
+        "qr_url, upi_id, payee_name, payment_note, service_charge, volumetric_divisor, whatsapp_number, whatsapp_message, delivery_estimate"
       )
       .maybeSingle()
       .then(({ data }) => {
@@ -85,7 +110,7 @@ export function useStoreSettings(): StoreSettings {
             note: data?.payment_note ?? "",
           },
           shipping: {
-            ratePerKg: data?.rate_per_kg ?? DEFAULT_SHIPPING_SETTINGS.ratePerKg,
+            rates: [],
             serviceCharge: data?.service_charge ?? DEFAULT_SHIPPING_SETTINGS.serviceCharge,
             volumetricDivisor:
               data?.volumetric_divisor ?? DEFAULT_SHIPPING_SETTINGS.volumetricDivisor,
@@ -103,7 +128,9 @@ export function useStoreSettings(): StoreSettings {
     };
   }, []);
 
-  return settings;
+  // Bands arrive on their own request, so they are merged on read rather than
+  // held inside the settings object and risking one overwrite the other.
+  return { ...settings, shipping: { ...settings.shipping, rates } };
 }
 
 /** Backwards-compatible alias used by checkout. */
@@ -482,7 +509,15 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   }
 
   const weightKg = cartWeightKg(input.lines, input.shipping.volumetricDivisor);
-  const shippingCost = Math.round(weightKg * input.shipping.ratePerKg);
+  // Banded pricing: the whole consignment pays its band. Per-kg only survives
+  // as the fallback for a weight heavier than every band.
+  // Shipping is banded. Heavier than every band takes the heaviest one, so a
+  // parcel is never shipped free.
+  const band =
+    rateForWeight(weightKg, input.shipping.rates) ??
+    [...input.shipping.rates].sort((a, b) => a.minKg - b.minKg).at(-1) ??
+    null;
+  const shippingCost = band?.price ?? 0;
   const serviceCharge = input.lines.length ? input.shipping.serviceCharge : 0;
   const total = input.itemTotal + shippingCost + serviceCharge;
 
@@ -516,7 +551,9 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       pincode: input.customer.pincode,
       item_total: input.itemTotal,
       weight_kg: weightKg,
-      rate_per_kg: input.shipping.ratePerKg,
+      // Kept on the order as a historical record of the band that was charged;
+      // shipping is no longer priced per kilogram.
+      rate_per_kg: 0,
       shipping_cost: shippingCost,
       service_charge: serviceCharge,
       total,

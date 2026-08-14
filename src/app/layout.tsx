@@ -15,18 +15,18 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "SZepto",
-    template: "%s · SZepto",
+    default: "Kiranaclick",
+    template: "%s · Kiranaclick",
   },
   description:
     "Order groceries, fresh fruits and vegetables, snacks and household essentials online.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "SZepto" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Kiranaclick" },
   icons: { apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#6d1b8c",
+  themeColor: "#087828",
   width: "device-width",
   initialScale: 1,
   // Let people zoom — capping it is an accessibility failure.

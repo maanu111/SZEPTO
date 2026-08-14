@@ -162,7 +162,7 @@ export function InstallPrompt() {
             SZ
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-extrabold text-ink-900">Install SZepto</span>
+            <span className="block text-[13px] font-extrabold text-ink-900">Install Kiranaclick</span>
             <span className="block truncate text-[11px] text-ink-500">
               Faster ordering, works offline
             </span>
@@ -194,7 +194,7 @@ export function InstallPrompt() {
             className="w-full max-w-sm rounded-2xl bg-white p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-extrabold text-ink-900">Add SZepto to your Home Screen</h2>
+            <h2 className="text-base font-extrabold text-ink-900">Add Kiranaclick to your Home Screen</h2>
             <ol className="mt-3 flex flex-col gap-2.5 text-[13px] text-ink-600">
               <li className="flex gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-100 text-[11px] font-bold text-ink-700">

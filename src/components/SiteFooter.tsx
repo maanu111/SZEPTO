@@ -10,7 +10,7 @@ export async function SiteFooter() {
       <div className="mx-auto max-w-[1400px] px-4 py-8 lg:px-6">
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
           <div className="col-span-2 sm:col-span-1">
-            <p className="text-lg font-extrabold text-brand-800">SZepto</p>
+            <p className="text-lg font-extrabold text-brand-800">Kiranaclick</p>
           </div>
 
           {groups.map((group) => (
