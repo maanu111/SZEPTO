@@ -54,8 +54,11 @@ export function SupportButton() {
       aria-label="Chat with us on WhatsApp"
       // Above the dock's own layer, so it is never painted behind it.
       style={{ bottom: `calc(${base} + var(--order-dock-h, 0px))` }}
-      className="fixed right-3 z-[55] flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_6px_20px_rgba(37,211,102,0.4)] transition-[transform,bottom] duration-200 hover:scale-105 active:scale-95 sm:right-5 lg:h-14 lg:w-14"
+      // A pill rather than a bare circle: "Support" says what it does, which an
+      // unlabelled icon leaves the customer to guess.
+      className="fixed right-3 z-[55] flex h-12 items-center gap-2 rounded-full bg-[#25D366] pl-4 pr-3.5 text-white shadow-[0_6px_20px_rgba(37,211,102,0.4)] transition-[transform,bottom] duration-200 hover:scale-105 active:scale-95 sm:right-5 lg:h-14 lg:pl-5 lg:pr-4"
     >
+      <span className="text-sm font-bold lg:text-[15px]">Support</span>
       <WhatsAppIcon className="h-6 w-6 lg:h-7 lg:w-7" />
     </a>
   );

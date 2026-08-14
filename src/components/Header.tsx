@@ -7,7 +7,6 @@ import { inr } from "@/lib/format";
 import { useCustomer } from "@/lib/customer";
 import { useOrders } from "@/lib/storefront";
 import { CartIcon, OrdersIcon, UserIcon } from "./icons";
-import { LocationPicker } from "./LocationPicker";
 import { SearchBox, type SearchBoxHandle } from "./SearchBox";
 
 export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }) {
@@ -19,23 +18,12 @@ export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }
     <>
       <header className="sticky top-0 z-50 border-b border-ink-100 bg-white">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-4 lg:px-6">
-          {/*
-            Row 1 — three tracks so the logo sits dead centre.
-
-            A plain flex row would centre the logo only when both sides happen
-            to be the same width, which they never are. Equal 1fr tracks either
-            side pin it to the middle regardless of what grows.
-          */}
-          <div className="grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2 lg:h-[4.5rem] lg:gap-4">
-            {/* Left: location */}
-            <div className="flex min-w-0 items-center gap-2 overflow-hidden lg:gap-3">
-              <LocationPicker />
-            </div>
-
-            {/* Centre: the wordmark is part of the artwork, so no text beside it */}
+          {/* Row 1 — logo on the left, actions on the right, nothing between. */}
+          <div className="flex h-14 items-center justify-between gap-3 lg:h-[4.5rem] lg:gap-4">
+            {/* The wordmark is part of the artwork, so no text beside it */}
             <Link
               href="/"
-              className="flex shrink-0 items-center justify-center"
+              className="flex shrink-0 items-center"
               aria-label="Kiranaclick home"
             >
               <Image
@@ -44,7 +32,7 @@ export function Header({ searchRef }: { searchRef?: React.Ref<SearchBoxHandle> }
                 width={816}
                 height={442}
                 priority
-                className="h-9 w-auto lg:h-14"
+                className="h-10 w-auto lg:h-14"
               />
             </Link>
 
